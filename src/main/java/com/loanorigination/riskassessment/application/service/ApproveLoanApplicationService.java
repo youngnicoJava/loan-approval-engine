@@ -10,19 +10,24 @@ import jakarta.transaction.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
+import com.loanorigination.audit.application.service.WorkflowEventRecorder;
+import com.loanorigination.audit.domain.AuditAction;
 
 @ApplicationScoped
 public class ApproveLoanApplicationService
         implements ApproveLoanApplicationUseCase {
 
     private final LoanApplicationRepository loanApplicationRepository;
+    private final WorkflowEventRecorder events;
 
     @Inject
     public ApproveLoanApplicationService(
-            LoanApplicationRepository loanApplicationRepository
+            LoanApplicationRepository loanApplicationRepository,
+            WorkflowEventRecorder events
     ) {
         this.loanApplicationRepository =
                 loanApplicationRepository;
+        this.events = events;
     }
 
     @Override
@@ -33,7 +38,7 @@ public class ApproveLoanApplicationService
 
         LoanApplication loanApplication =
                 loanApplicationRepository
-                        .findById(loanApplicationId)
+                        .findByIdForUpdate(loanApplicationId)
                         .orElseThrow(
                                 () -> new LoanApplicationNotFoundException(
                                         loanApplicationId
@@ -47,6 +52,8 @@ public class ApproveLoanApplicationService
         loanApplicationRepository.save(
                 loanApplication
         );
+        events.record("LoanApplicationApproved", AuditAction.APPLICATION_APPROVED, "LoanApplication", loanApplicationId,
+                java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "source", "MANUAL_REVIEW"));
 
         return loanApplication;
     }

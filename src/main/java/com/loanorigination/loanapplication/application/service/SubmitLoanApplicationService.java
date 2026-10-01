@@ -11,6 +11,8 @@ import com.loanorigination.loanapplication.application.port.out.LoanApplicationR
 import com.loanorigination.loanapplication.domain.LoanApplication;
 import com.loanorigination.security.application.port.out.CurrentUserPort;
 import com.loanorigination.loanapplication.application.exception.LoanApplicationAccessDeniedException;
+import com.loanorigination.audit.application.service.WorkflowEventRecorder;
+import com.loanorigination.audit.domain.AuditAction;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -25,16 +27,19 @@ public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCas
     private final LoanApplicationRepository loanApplicationRepository;
     private final CustomerRepository customerRepository;
     private final CurrentUserPort currentUserPort;
+    private final WorkflowEventRecorder events;
 
     @Inject
     public SubmitLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
             CustomerRepository customerRepository,
-            CurrentUserPort currentUserPort
+            CurrentUserPort currentUserPort,
+            WorkflowEventRecorder events
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.customerRepository = customerRepository;
         this.currentUserPort = currentUserPort;
+        this.events = events;
     }
 
     @Override
@@ -42,7 +47,7 @@ public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCas
     public LoanApplication submit(UUID loanApplicationId) {
 
         LoanApplication loanApplication = loanApplicationRepository
-                .findById(loanApplicationId)
+                .findByIdForUpdate(loanApplicationId)
                 .orElseThrow(
                         () -> new LoanApplicationNotFoundException(
                                 loanApplicationId
@@ -76,6 +81,8 @@ public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCas
         loanApplication.submit(Instant.now());
 
         loanApplicationRepository.save(loanApplication);
+        events.record("LoanApplicationSubmitted", AuditAction.APPLICATION_SUBMITTED, "LoanApplication", loanApplication.id(),
+                java.util.Map.of("loanApplicationId", loanApplication.id().toString()));
 
         return loanApplication;
     }

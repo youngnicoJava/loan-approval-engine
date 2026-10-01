@@ -18,12 +18,14 @@ import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 import java.time.Clock;
+import com.loanorigination.audit.application.service.WorkflowEventRecorder;
+import com.loanorigination.audit.domain.AuditAction;
 
 @ApplicationScoped
 public class AcceptLoanOfferService implements AcceptLoanOfferUseCase {
-    private final LoanOfferRepository offers; private final LoanRepository loans; private final CustomerRepository customers; private final CurrentUserPort currentUser; private final Clock clock;
-    @Inject public AcceptLoanOfferService(LoanOfferRepository offers, LoanRepository loans, CustomerRepository customers, CurrentUserPort currentUser, Clock clock) {
-        this.offers=offers; this.loans=loans; this.customers=customers; this.currentUser=currentUser; this.clock=clock;
+    private final LoanOfferRepository offers; private final LoanRepository loans; private final CustomerRepository customers; private final CurrentUserPort currentUser; private final Clock clock; private final WorkflowEventRecorder events;
+    @Inject public AcceptLoanOfferService(LoanOfferRepository offers, LoanRepository loans, CustomerRepository customers, CurrentUserPort currentUser, Clock clock, WorkflowEventRecorder events) {
+        this.offers=offers; this.loans=loans; this.customers=customers; this.currentUser=currentUser; this.clock=clock; this.events=events;
     }
     @Override @Transactional(dontRollbackOn=LoanOfferExpiredException.class) public Loan accept(UUID offerId) {
         LoanOffer offer=offers.findByIdForUpdate(offerId).orElseThrow(()->new LoanOfferNotFoundException(offerId));
@@ -42,7 +44,10 @@ public class AcceptLoanOfferService implements AcceptLoanOfferUseCase {
         Loan loan=Loan.createFromAcceptedOffer(offer.id(), offer.loanApplicationId(), offer.customerId(), offer.principal(),
                 offer.term(), offer.annualInterestRate(), offer.monthlyInstallment(), offer.totalRepayment(), now);
         loans.save(loan);
-        // Punto futuro de publicación de LOAN_CREATED mediante outbox.
+        events.record("LoanOfferAccepted", AuditAction.OFFER_ACCEPTED, "LoanOffer", offer.id(),
+                java.util.Map.of("loanOfferId",offer.id().toString(),"loanApplicationId",offer.loanApplicationId().toString()));
+        events.record("LoanCreated", AuditAction.LOAN_CREATED, "Loan", loan.id(),
+                java.util.Map.of("loanId",loan.id().toString(),"loanOfferId",offer.id().toString(),"customerId",loan.customerId().toString()));
         return loan;
     }
 }

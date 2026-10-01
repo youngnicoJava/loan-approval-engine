@@ -21,6 +21,10 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.transaction.Transactional;
+import com.loanorigination.idempotency.application.service.IdempotencyService;
+import com.loanorigination.idempotency.adapter.in.rest.RequestFingerprint;
 
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
@@ -39,6 +43,8 @@ public class LoanApplicationResource {
     private final EvaluateLoanApplicationUseCase evaluateLoanApplicationUseCase;
     private final ApproveLoanApplicationUseCase approveLoanApplicationUseCase;
     private final RejectLoanApplicationUseCase rejectLoanApplicationUseCase;
+    private final IdempotencyService idempotency;
+    private final RequestFingerprint fingerprint;
 
     @Inject
     public LoanApplicationResource(
@@ -47,7 +53,9 @@ public class LoanApplicationResource {
             SubmitLoanApplicationUseCase submitLoanApplicationUseCase,
             EvaluateLoanApplicationUseCase evaluateLoanApplicationUseCase,
             ApproveLoanApplicationUseCase approveLoanApplicationUseCase,
-            RejectLoanApplicationUseCase rejectLoanApplicationUseCase
+            RejectLoanApplicationUseCase rejectLoanApplicationUseCase,
+            IdempotencyService idempotency,
+            RequestFingerprint fingerprint
     ) {
         this.createLoanApplicationUseCase = createLoanApplicationUseCase;
         this.getLoanApplicationUseCase = getLoanApplicationUseCase;
@@ -55,25 +63,24 @@ public class LoanApplicationResource {
         this.evaluateLoanApplicationUseCase = evaluateLoanApplicationUseCase;
         this.approveLoanApplicationUseCase = approveLoanApplicationUseCase;
         this.rejectLoanApplicationUseCase = rejectLoanApplicationUseCase;
+        this.idempotency=idempotency;
+        this.fingerprint=fingerprint;
     }
 
     @POST
     @RolesAllowed("CUSTOMER")
+    @Transactional
     public Response create(
+            @HeaderParam("Idempotency-Key") String key,
             @Valid CreateLoanApplicationRequest request
     ) {
-
-        LoanApplicationResponse response =
+        var result=idempotency.execute("loan-applications:create",key,fingerprint.of(request),201,LoanApplicationResponse.class,()->
                 LoanApplicationResponse.from(
                         createLoanApplicationUseCase.create(
                                 request.toCommand()
                         )
-                );
-
-        return Response
-                .status(Response.Status.CREATED)
-                .entity(response)
-                .build();
+                ));
+        return Response.status(result.status()).entity(result.body()).build();
     }
 
     @GET
@@ -96,13 +103,13 @@ public class LoanApplicationResource {
     @POST
     @Path("/{id}/submit")
     @RolesAllowed("CUSTOMER")
+    @Transactional
     public LoanApplicationResponse submit(
+            @HeaderParam("Idempotency-Key") String key,
             @PathParam("id") UUID id
     ) {
-
-        return LoanApplicationResponse.from(
-                submitLoanApplicationUseCase.submit(id)
-        );
+        return idempotency.execute("loan-applications:submit:"+id,key,fingerprint.of(id.toString()),200,LoanApplicationResponse.class,
+                ()->LoanApplicationResponse.from(submitLoanApplicationUseCase.submit(id))).body();
     }
 
     /**
@@ -136,13 +143,13 @@ public class LoanApplicationResource {
             "LOAN_OFFICER",
             "ADMIN"
     })
+    @Transactional
     public LoanApplicationResponse approve(
+            @HeaderParam("Idempotency-Key") String key,
             @PathParam("id") UUID id
     ) {
-
-        return LoanApplicationResponse.from(
-                approveLoanApplicationUseCase.approve(id)
-        );
+        return idempotency.execute("loan-applications:approve:"+id,key,fingerprint.of(id.toString()),200,LoanApplicationResponse.class,
+                ()->LoanApplicationResponse.from(approveLoanApplicationUseCase.approve(id))).body();
     }
 
     /**
@@ -154,12 +161,12 @@ public class LoanApplicationResource {
             "LOAN_OFFICER",
             "ADMIN"
     })
+    @Transactional
     public LoanApplicationResponse reject(
+            @HeaderParam("Idempotency-Key") String key,
             @PathParam("id") UUID id
     ) {
-
-        return LoanApplicationResponse.from(
-                rejectLoanApplicationUseCase.reject(id)
-        );
+        return idempotency.execute("loan-applications:reject:"+id,key,fingerprint.of(id.toString()),200,LoanApplicationResponse.class,
+                ()->LoanApplicationResponse.from(rejectLoanApplicationUseCase.reject(id))).body();
     }
 }

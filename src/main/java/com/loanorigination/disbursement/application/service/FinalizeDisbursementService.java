@@ -14,9 +14,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Clock;
 import java.util.UUID;
+import com.loanorigination.audit.application.service.WorkflowEventRecorder;
+import com.loanorigination.audit.domain.AuditAction;
 @ApplicationScoped public class FinalizeDisbursementService{
-    private final LoanRepository loans;private final DisbursementRepository disbursements;private final RepaymentScheduleRepository schedules;private final AmortizationCalculatorPort calculator;private final Clock clock;
-    @Inject public FinalizeDisbursementService(LoanRepository loans,DisbursementRepository disbursements,RepaymentScheduleRepository schedules,AmortizationCalculatorPort calculator,Clock clock){this.loans=loans;this.disbursements=disbursements;this.schedules=schedules;this.calculator=calculator;this.clock=clock;}
+    private final LoanRepository loans;private final DisbursementRepository disbursements;private final RepaymentScheduleRepository schedules;private final AmortizationCalculatorPort calculator;private final Clock clock;private final WorkflowEventRecorder events;
+    @Inject public FinalizeDisbursementService(LoanRepository loans,DisbursementRepository disbursements,RepaymentScheduleRepository schedules,AmortizationCalculatorPort calculator,Clock clock,WorkflowEventRecorder events){this.loans=loans;this.disbursements=disbursements;this.schedules=schedules;this.calculator=calculator;this.clock=clock;this.events=events;}
     @Transactional public Disbursement finish(UUID loanId,DisbursementResult result){
         var loan=loans.findByIdForUpdate(loanId).orElseThrow(()->new com.loanorigination.loan.application.exception.LoanNotFoundException(loanId));
         Disbursement disbursement=disbursements.findByLoanIdForUpdate(loanId).orElseThrow(()->new LoanNotEligibleForDisbursementException(loanId));
@@ -32,7 +34,8 @@ import java.util.UUID;
         disbursement.complete(result.completedAt(),result.externalReference());
         loan.activate(result.completedAt());
         disbursements.save(disbursement);loans.save(loan);schedules.save(schedule);
-        // Aquí se podrán emitir LOAN_DISBURSED y REPAYMENT_SCHEDULE_CREATED mediante outbox.
+        events.record("LoanDisbursed",AuditAction.LOAN_DISBURSED,"Loan",loan.id(),java.util.Map.of("loanId",loan.id().toString(),"disbursementId",disbursement.id().toString()));
+        events.record("RepaymentScheduleCreated",AuditAction.REPAYMENT_SCHEDULE_CREATED,"RepaymentSchedule",schedule.id(),java.util.Map.of("scheduleId",schedule.id().toString(),"loanId",loan.id().toString()));
         return disbursement;
     }
 }

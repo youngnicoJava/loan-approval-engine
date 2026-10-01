@@ -26,12 +26,14 @@ import java.util.UUID;
 import java.time.Clock;
 import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
+import com.loanorigination.audit.application.service.WorkflowEventRecorder;
+import com.loanorigination.audit.domain.AuditAction;
 
 @ApplicationScoped
 public class IssueLoanOfferService implements IssueLoanOfferUseCase {
-    private final LoanApplicationRepository applications; private final CustomerRepository customers; private final LoanOfferRepository offers; private final Clock clock; private final AmortizationCalculatorPort amortizationCalculator;
-    @Inject public IssueLoanOfferService(LoanApplicationRepository applications, CustomerRepository customers, LoanOfferRepository offers, Clock clock, AmortizationCalculatorPort amortizationCalculator) {
-        this.applications=applications; this.customers=customers; this.offers=offers; this.clock=clock; this.amortizationCalculator=amortizationCalculator;
+    private final LoanApplicationRepository applications; private final CustomerRepository customers; private final LoanOfferRepository offers; private final Clock clock; private final AmortizationCalculatorPort amortizationCalculator; private final WorkflowEventRecorder events;
+    @Inject public IssueLoanOfferService(LoanApplicationRepository applications, CustomerRepository customers, LoanOfferRepository offers, Clock clock, AmortizationCalculatorPort amortizationCalculator, WorkflowEventRecorder events) {
+        this.applications=applications; this.customers=customers; this.offers=offers; this.clock=clock; this.amortizationCalculator=amortizationCalculator; this.events=events;
     }
     @Override @Transactional public LoanOffer issue(UUID applicationId, BigDecimal offeredPrincipal, Integer offeredTermMonths, BigDecimal annualRatePercentage, Instant expiresAt) {
         LoanApplication app=applications.findByIdForUpdate(applicationId).orElseThrow(()->new LoanApplicationNotFoundException(applicationId));
@@ -56,6 +58,9 @@ public class IssueLoanOfferService implements IssueLoanOfferUseCase {
         if (expiresAt==null || !expiresAt.isAfter(now)) throw new InvalidLoanOfferTermsException("expiresAt must be in the future");
         LoanOffer offer=LoanOffer.create(app.id(), customer.id(), principal, term, rate,
                 quote.regularInstallment(), quote.totalRepayment(), now, expiresAt);
-        offers.save(offer); return offer;
+        offers.save(offer);
+        events.record("LoanOfferCreated", AuditAction.OFFER_CREATED, "LoanOffer", offer.id(),
+                java.util.Map.of("loanOfferId",offer.id().toString(),"loanApplicationId",app.id().toString(),"customerId",customer.id().toString()));
+        return offer;
     }
 }
