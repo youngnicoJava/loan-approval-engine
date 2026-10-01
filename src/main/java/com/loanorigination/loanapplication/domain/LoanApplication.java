@@ -47,6 +47,9 @@ public final class LoanApplication {
         this.customerId = Objects.requireNonNull(customerId, "customerId cannot be null");
         this.productType = Objects.requireNonNull(productType, "productType cannot be null");
         this.requestedAmount = Objects.requireNonNull(requestedAmount, "requestedAmount cannot be null");
+        if (requestedAmount.amount().signum() <= 0) {
+            throw new IllegalArgumentException("Requested amount must be greater than zero");
+        }
         this.term = Objects.requireNonNull(term, "term cannot be null");
         this.purpose = requirePurpose(purpose);
         this.status = Objects.requireNonNull(status, "status cannot be null");
@@ -214,6 +217,10 @@ public final class LoanApplication {
 
         if (normalized.isBlank()) {
             throw new IllegalArgumentException("Purpose cannot be blank");
+        }
+
+        if (normalized.length() > 500) {
+            throw new IllegalArgumentException("Purpose cannot exceed 500 characters");
         }
 
         return normalized;
