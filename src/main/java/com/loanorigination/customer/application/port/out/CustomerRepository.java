@@ -16,5 +16,11 @@ public interface CustomerRepository {
 
     Optional<Customer> findById(UUID customerId);
 
-    boolean existsByExternalIdentityId(String externalIdentityId);
+    Optional<Customer> findByExternalIdentityId(
+            String externalIdentityId
+    );
+
+    boolean existsByExternalIdentityId(
+            String externalIdentityId
+    );
 }

@@ -9,6 +9,7 @@ import com.loanorigination.loanapplication.application.command.CreateLoanApplica
 import com.loanorigination.loanapplication.application.port.in.CreateLoanApplicationUseCase;
 import com.loanorigination.loanapplication.application.port.out.LoanApplicationRepository;
 import com.loanorigination.loanapplication.domain.LoanApplication;
+import com.loanorigination.security.application.port.out.CurrentUserPort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -21,14 +22,17 @@ public class CreateLoanApplicationService
 
     private final LoanApplicationRepository loanApplicationRepository;
     private final CustomerRepository customerRepository;
+    private final CurrentUserPort currentUserPort;
 
     @Inject
     public CreateLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
-            CustomerRepository customerRepository
+            CustomerRepository customerRepository,
+            CurrentUserPort currentUserPort
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.customerRepository = customerRepository;
+        this.currentUserPort = currentUserPort;
     }
 
     @Override
@@ -37,11 +41,15 @@ public class CreateLoanApplicationService
             CreateLoanApplicationCommand command
     ) {
 
+        String externalIdentityId = currentUserPort
+                .getCurrentUser()
+                .externalIdentityId();
+
         Customer customer = customerRepository
-                .findById(command.customerId())
+                .findByExternalIdentityId(externalIdentityId)
                 .orElseThrow(
                         () -> new CustomerNotFoundException(
-                                command.customerId()
+                                externalIdentityId
                         )
                 );
 
@@ -50,7 +58,7 @@ public class CreateLoanApplicationService
         }
 
         LoanApplication loanApplication = LoanApplication.create(
-                command.customerId(),
+                customer.id(),
                 command.productType(),
                 command.requestedAmount(),
                 command.term(),

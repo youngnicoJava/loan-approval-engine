@@ -8,10 +8,6 @@ import jakarta.validation.constraints.Size;
 public record CreateCustomerRequest(
 
         @NotBlank
-        @Size(max = 255)
-        String externalIdentityId,
-
-        @NotBlank
         @Size(max = 150)
         String fullName,
 
@@ -25,7 +21,6 @@ public record CreateCustomerRequest(
     public CreateCustomerCommand toCommand() {
 
         return new CreateCustomerCommand(
-                externalIdentityId,
                 fullName,
                 email
         );

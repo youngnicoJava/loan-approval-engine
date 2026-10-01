@@ -9,6 +9,9 @@ import com.loanorigination.loanapplication.application.exception.LoanApplication
 import com.loanorigination.loanapplication.application.port.in.SubmitLoanApplicationUseCase;
 import com.loanorigination.loanapplication.application.port.out.LoanApplicationRepository;
 import com.loanorigination.loanapplication.domain.LoanApplication;
+import com.loanorigination.security.application.port.out.CurrentUserPort;
+import com.loanorigination.loanapplication.application.exception.LoanApplicationAccessDeniedException;
+
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -17,19 +20,21 @@ import java.time.Instant;
 import java.util.UUID;
 
 @ApplicationScoped
-public class SubmitLoanApplicationService
-        implements SubmitLoanApplicationUseCase {
+public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCase {
 
     private final LoanApplicationRepository loanApplicationRepository;
     private final CustomerRepository customerRepository;
+    private final CurrentUserPort currentUserPort;
 
     @Inject
     public SubmitLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
-            CustomerRepository customerRepository
+            CustomerRepository customerRepository,
+            CurrentUserPort currentUserPort
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.customerRepository = customerRepository;
+        this.currentUserPort = currentUserPort;
     }
 
     @Override
@@ -44,22 +49,30 @@ public class SubmitLoanApplicationService
                         )
                 );
 
+        String externalIdentityId = currentUserPort
+                .getCurrentUser()
+                .externalIdentityId();
+
         Customer customer = customerRepository
-                .findById(loanApplication.customerId())
+                .findByExternalIdentityId(externalIdentityId)
                 .orElseThrow(
                         () -> new CustomerNotFoundException(
-                                loanApplication.customerId()
+                                externalIdentityId
                         )
                 );
 
-        if (customer.status() == CustomerStatus.BLOCKED) {
+        if (customer.id().equals(loanApplication.customerId())
+                && customer.status() == CustomerStatus.BLOCKED) {
+
             throw new CustomerBlockedException(customer.id());
         }
 
-        /*
-         * La transición DRAFT -> SUBMITTED sigue perteneciendo
-         * exclusivamente al agregado LoanApplication.
-         */
+        if (!customer.id().equals(loanApplication.customerId())) {
+            throw new LoanApplicationAccessDeniedException(
+                    loanApplicationId
+            );
+        }
+
         loanApplication.submit(Instant.now());
 
         loanApplicationRepository.save(loanApplication);

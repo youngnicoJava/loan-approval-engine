@@ -5,7 +5,9 @@ import com.loanorigination.customer.adapter.in.rest.dto.CustomerResponse;
 import com.loanorigination.customer.application.port.in.ActivateCustomerUseCase;
 import com.loanorigination.customer.application.port.in.BlockCustomerUseCase;
 import com.loanorigination.customer.application.port.in.CreateCustomerUseCase;
+import com.loanorigination.customer.application.port.in.GetCurrentCustomerUseCase;
 import com.loanorigination.customer.application.port.in.GetCustomerUseCase;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -28,6 +30,7 @@ public class CustomerResource {
 
     private final CreateCustomerUseCase createCustomerUseCase;
     private final GetCustomerUseCase getCustomerUseCase;
+    private final GetCurrentCustomerUseCase getCurrentCustomerUseCase;
     private final BlockCustomerUseCase blockCustomerUseCase;
     private final ActivateCustomerUseCase activateCustomerUseCase;
 
@@ -35,16 +38,19 @@ public class CustomerResource {
     public CustomerResource(
             CreateCustomerUseCase createCustomerUseCase,
             GetCustomerUseCase getCustomerUseCase,
+            GetCurrentCustomerUseCase getCurrentCustomerUseCase,
             BlockCustomerUseCase blockCustomerUseCase,
             ActivateCustomerUseCase activateCustomerUseCase
     ) {
         this.createCustomerUseCase = createCustomerUseCase;
         this.getCustomerUseCase = getCustomerUseCase;
+        this.getCurrentCustomerUseCase = getCurrentCustomerUseCase;
         this.blockCustomerUseCase = blockCustomerUseCase;
         this.activateCustomerUseCase = activateCustomerUseCase;
     }
 
     @POST
+    @RolesAllowed("CUSTOMER")
     public Response create(
             @Valid CreateCustomerRequest request
     ) {
@@ -62,7 +68,22 @@ public class CustomerResource {
     }
 
     @GET
+    @Path("/me")
+    @RolesAllowed("CUSTOMER")
+    public CustomerResponse getCurrentCustomer() {
+
+        return CustomerResponse.from(
+                getCurrentCustomerUseCase.getCurrentCustomer()
+        );
+    }
+
+    @GET
     @Path("/{id}")
+    @RolesAllowed({
+            "LOAN_OFFICER",
+            "AUDITOR",
+            "ADMIN"
+    })
     public CustomerResponse get(
             @PathParam("id") UUID id
     ) {
@@ -74,6 +95,10 @@ public class CustomerResource {
 
     @POST
     @Path("/{id}/block")
+    @RolesAllowed({
+            "LOAN_OFFICER",
+            "ADMIN"
+    })
     public CustomerResponse block(
             @PathParam("id") UUID id
     ) {
@@ -85,6 +110,10 @@ public class CustomerResource {
 
     @POST
     @Path("/{id}/activate")
+    @RolesAllowed({
+            "LOAN_OFFICER",
+            "ADMIN"
+    })
     public CustomerResponse activate(
             @PathParam("id") UUID id
     ) {

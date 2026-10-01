@@ -5,8 +5,6 @@ import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
 
 import java.util.Objects;
-import java.util.UUID;
-
 /**
  * Comando de aplicación para crear una solicitud.
  *
@@ -14,7 +12,6 @@ import java.util.UUID;
  * pero no contiene lógica de negocio. Las invariantes pertenecen al dominio.
  */
 public record CreateLoanApplicationCommand(
-        UUID customerId,
         LoanProductType productType,
         Money requestedAmount,
         LoanTerm term,
@@ -22,9 +19,11 @@ public record CreateLoanApplicationCommand(
 ) {
 
     public CreateLoanApplicationCommand {
-        Objects.requireNonNull(customerId, "customerId cannot be null");
         Objects.requireNonNull(productType, "productType cannot be null");
-        Objects.requireNonNull(requestedAmount, "requestedAmount cannot be null");
+        Objects.requireNonNull(
+                requestedAmount,
+                "requestedAmount cannot be null"
+        );
         Objects.requireNonNull(term, "term cannot be null");
         Objects.requireNonNull(purpose, "purpose cannot be null");
     }

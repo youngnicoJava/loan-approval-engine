@@ -14,24 +14,14 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Locale;
-import java.util.UUID;
 
-/**
- * Contrato HTTP para crear una solicitud.
- *
- * Las validaciones de formato y entrada pertenecen al adapter.
- * Las invariantes de negocio siguen perteneciendo al dominio.
- */
 public record CreateLoanApplicationRequest(
-
-        @NotNull
-        UUID customerId,
 
         @NotNull
         LoanProductType productType,
 
         @NotNull
-        @DecimalMin(value = "0.01")
+        @DecimalMin("0.01")
         BigDecimal requestedAmount,
 
         @NotBlank
@@ -54,7 +44,6 @@ public record CreateLoanApplicationRequest(
                 .toUpperCase(Locale.ROOT);
 
         return new CreateLoanApplicationCommand(
-                customerId,
                 productType,
                 Money.of(
                         requestedAmount,

@@ -55,4 +55,13 @@ public class CustomerPersistenceAdapter
                 .findByExternalIdentityId(externalIdentityId)
                 .isPresent();
     }
+
+    @Override
+    public Optional<Customer> findByExternalIdentityId(
+            String externalIdentityId
+    ) {
+        return repository
+                .findByExternalIdentityId(externalIdentityId)
+                .map(CustomerEntity::toDomain);
+    }
 }

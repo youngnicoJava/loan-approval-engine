@@ -33,7 +33,7 @@ public class CustomerEntity extends PanacheEntityBase {
     )
     private String externalIdentityId;
 
-    @Column(nullable = false, length = 150)
+    @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
     @Column(nullable = false, length = 320)
