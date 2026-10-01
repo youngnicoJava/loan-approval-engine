@@ -5,17 +5,15 @@ import java.time.Instant;
 public record ApiErrorResponse(
         String code,
         String message,
-        Instant timestamp
+        Instant timestamp,
+        String correlationId
 ) {
 
     public static ApiErrorResponse of(
             String code,
             String message
     ) {
-        return new ApiErrorResponse(
-                code,
-                message,
-                Instant.now()
-        );
+        Object correlationId = org.jboss.logging.MDC.get("correlationId");
+        return new ApiErrorResponse(code, message, Instant.now(), correlationId == null ? null : correlationId.toString());
     }
 }

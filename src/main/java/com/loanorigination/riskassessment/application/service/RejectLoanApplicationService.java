@@ -9,7 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.UUID;
 import com.loanorigination.audit.application.service.WorkflowEventRecorder;
 import com.loanorigination.audit.domain.AuditAction;
@@ -19,14 +19,17 @@ public class RejectLoanApplicationService implements RejectLoanApplicationUseCas
 
     private final LoanApplicationRepository loanApplicationRepository;
     private final WorkflowEventRecorder events;
+    private final Clock clock;
 
     @Inject
     public RejectLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
-            WorkflowEventRecorder events
+            WorkflowEventRecorder events,
+            Clock clock
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.events = events;
+        this.clock = clock;
     }
 
     @Override
@@ -45,7 +48,7 @@ public class RejectLoanApplicationService implements RejectLoanApplicationUseCas
                         );
 
         loanApplication.reject(
-                Instant.now()
+                clock.instant()
         );
 
         loanApplicationRepository.save(

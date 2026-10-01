@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
+import com.loanorigination.observability.application.port.out.OperationalMetricsPort;
 
 /** Registra en una misma transacción la evidencia funcional y el mensaje pendiente de publicación. */
 @ApplicationScoped
@@ -27,10 +28,11 @@ public class WorkflowEventRecorder {
     private final CorrelationIdPort correlation;
     private final PayloadCodecPort codec;
     private final Clock clock;
+    private final OperationalMetricsPort metrics;
 
     @Inject public WorkflowEventRecorder(AuditRepository audit,OutboxRepository outbox,CurrentUserPort currentUser,
-            CorrelationIdPort correlation,PayloadCodecPort codec,Clock clock){
-        this.audit=audit;this.outbox=outbox;this.currentUser=currentUser;this.correlation=correlation;this.codec=codec;this.clock=clock;
+            CorrelationIdPort correlation,PayloadCodecPort codec,Clock clock,OperationalMetricsPort metrics){
+        this.audit=audit;this.outbox=outbox;this.currentUser=currentUser;this.correlation=correlation;this.codec=codec;this.clock=clock;this.metrics=metrics;
     }
 
     public void record(String eventType,AuditAction action,String aggregateType,UUID aggregateId,Map<String,Object> payload){
@@ -50,6 +52,23 @@ public class WorkflowEventRecorder {
         } catch (IllegalStateException | ContextNotActiveException noAuthenticatedActor) { }
         audit.append(new AuditEvent(UUID.randomUUID(),event.eventId(),actorId,actorType,action,event.aggregateType(),event.aggregateId(),event.occurredAt(),event.correlationId(),json));
         outbox.append(new OutboxEvent(UUID.randomUUID(),event.eventId(),event.eventType(),event.eventVersion(),event.aggregateType(),event.aggregateId(),event.correlationId(),json,event.occurredAt(),null,OutboxStatus.PENDING,0,null,null));
+        String metric = switch (eventType) {
+            case "LoanApplicationSubmitted" -> "loan_applications_submitted_total";
+            case "RiskAssessmentCompleted" -> "risk_assessments_completed_total";
+            case "LoanApplicationApproved" -> "loan_applications_approved_total";
+            case "LoanApplicationRejected" -> "loan_applications_rejected_total";
+            case "LoanOfferCreated" -> "loan_offers_created_total";
+            case "LoanOfferAccepted" -> "loan_offers_accepted_total";
+            case "LoanCreated" -> "loans_created_total";
+            case "DisbursementRequested" -> "disbursements_requested_total";
+            case "LoanDisbursed" -> "disbursements_completed_total";
+            case "RepaymentScheduleCreated" -> "repayment_schedules_created_total";
+            default -> null;
+        };
+        if (metric != null) metrics.increment(metric);
+        if ("RiskAssessmentCompleted".equals(eventType) && "REFER".equals(payload.get("decision"))) {
+            metrics.increment("loan_applications_referred_total");
+        }
     }
 
     private AuditActorType actorType(AuthenticatedUser user){

@@ -12,16 +12,18 @@ import jakarta.transaction.Transactional.TxType;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.function.Supplier;
+import com.loanorigination.observability.application.port.out.OperationalMetricsPort;
 
 @ApplicationScoped
 public class IdempotencyService {
- private final IdempotencyRepository records; private final ResponseCodecPort codec; private final CurrentUserPort currentUser; private final Clock clock;
- @Inject public IdempotencyService(IdempotencyRepository records,ResponseCodecPort codec,CurrentUserPort currentUser,Clock clock){this.records=records;this.codec=codec;this.currentUser=currentUser;this.clock=clock;}
+ private final IdempotencyRepository records; private final ResponseCodecPort codec; private final CurrentUserPort currentUser; private final Clock clock; private final OperationalMetricsPort metrics;
+ @Inject public IdempotencyService(IdempotencyRepository records,ResponseCodecPort codec,CurrentUserPort currentUser,Clock clock,OperationalMetricsPort metrics){this.records=records;this.codec=codec;this.currentUser=currentUser;this.clock=clock;this.metrics=metrics;}
  public <T> Result<T> execute(String scope,String key,String hash,int responseStatus,Class<T> type,Supplier<T> operation){
         var claim=claim(scope,key,hash);var record=claim.record();
-  if(!record.requestHash().equals(hash))throw new IdempotencyKeyReusedException();
-  if(record.status()==IdempotencyStatus.COMPLETED)return new Result<>(codec.decode(record.responseBody(),type),record.responseStatus(),true);
-  if(!claim.acquired())throw new IdempotencyInProgressException();
+  if(!record.requestHash().equals(hash)){metrics.increment("idempotency_conflicts_total");throw new IdempotencyKeyReusedException();}
+  if(record.status()==IdempotencyStatus.COMPLETED){metrics.increment("idempotency_replays_total");return new Result<>(codec.decode(record.responseBody(),type),record.responseStatus(),true);}
+  if(!claim.acquired()){metrics.increment("idempotency_concurrent_conflicts_total");throw new IdempotencyInProgressException();}
+  metrics.increment("idempotency_first_executions_total");
   T value=operation.get();records.complete(record,responseStatus,codec.encode(value));return new Result<>(value,responseStatus,false);
  }
  @Transactional(TxType.REQUIRES_NEW)

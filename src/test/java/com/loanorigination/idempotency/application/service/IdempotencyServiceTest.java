@@ -23,7 +23,7 @@ class IdempotencyServiceTest {
         ResponseCodecPort codec=new ResponseCodecPort(){public String encode(Object value){return value.toString();}public <T>T decode(String value,Class<T> type){return type.cast(value);}};
         var service=new IdempotencyService(repository,codec,
                 ()->new AuthenticatedUser("customer-1",java.util.Set.of("CUSTOMER")),
-                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC), metric -> {});
         var executions=new AtomicInteger();
         var first=service.execute("scope","key-1","same-hash",201,String.class,()->"created-1"+executions.incrementAndGet());
         var retry=service.execute("scope","key-1","same-hash",201,String.class,()->"should-not-run");
@@ -36,7 +36,7 @@ class IdempotencyServiceTest {
 
     @Test void sameKeyWithDifferentRequestConflicts() {
         var service=new IdempotencyService(new MemoryRepository(),new ResponseCodecPort(){public String encode(Object value){return value.toString();}public <T>T decode(String value,Class<T> type){return type.cast(value);}},
-                ()->new AuthenticatedUser("customer-1",java.util.Set.of("CUSTOMER")),Clock.systemUTC());
+                ()->new AuthenticatedUser("customer-1",java.util.Set.of("CUSTOMER")),Clock.systemUTC(), metric -> {});
         service.execute("scope","key-2","hash-a",200,String.class,()->"done");
         assertThrows(IdempotencyKeyReusedException.class,()->service.execute("scope","key-2","hash-b",200,String.class,()->"again"));
     }

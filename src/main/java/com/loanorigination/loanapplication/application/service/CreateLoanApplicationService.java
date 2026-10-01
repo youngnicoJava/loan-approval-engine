@@ -14,7 +14,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
+import com.loanorigination.observability.application.port.out.OperationalMetricsPort;
 
 @ApplicationScoped
 public class CreateLoanApplicationService
@@ -23,16 +24,21 @@ public class CreateLoanApplicationService
     private final LoanApplicationRepository loanApplicationRepository;
     private final CustomerRepository customerRepository;
     private final CurrentUserPort currentUserPort;
+    private final Clock clock;
+    private final OperationalMetricsPort metrics;
 
     @Inject
     public CreateLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
             CustomerRepository customerRepository,
             CurrentUserPort currentUserPort
+            , Clock clock, OperationalMetricsPort metrics
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.customerRepository = customerRepository;
         this.currentUserPort = currentUserPort;
+        this.clock = clock;
+        this.metrics = metrics;
     }
 
     @Override
@@ -63,10 +69,11 @@ public class CreateLoanApplicationService
                 command.requestedAmount(),
                 command.term(),
                 command.purpose(),
-                Instant.now()
+                clock.instant()
         );
 
         loanApplicationRepository.save(loanApplication);
+        metrics.increment("loan_applications_created_total");
 
         return loanApplication;
     }

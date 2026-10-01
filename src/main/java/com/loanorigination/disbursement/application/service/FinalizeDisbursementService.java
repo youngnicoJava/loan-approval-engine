@@ -16,9 +16,10 @@ import java.time.Clock;
 import java.util.UUID;
 import com.loanorigination.audit.application.service.WorkflowEventRecorder;
 import com.loanorigination.audit.domain.AuditAction;
+import com.loanorigination.observability.application.port.out.OperationalMetricsPort;
 @ApplicationScoped public class FinalizeDisbursementService{
-    private final LoanRepository loans;private final DisbursementRepository disbursements;private final RepaymentScheduleRepository schedules;private final AmortizationCalculatorPort calculator;private final Clock clock;private final WorkflowEventRecorder events;
-    @Inject public FinalizeDisbursementService(LoanRepository loans,DisbursementRepository disbursements,RepaymentScheduleRepository schedules,AmortizationCalculatorPort calculator,Clock clock,WorkflowEventRecorder events){this.loans=loans;this.disbursements=disbursements;this.schedules=schedules;this.calculator=calculator;this.clock=clock;this.events=events;}
+    private final LoanRepository loans;private final DisbursementRepository disbursements;private final RepaymentScheduleRepository schedules;private final AmortizationCalculatorPort calculator;private final Clock clock;private final WorkflowEventRecorder events;private final OperationalMetricsPort metrics;
+    @Inject public FinalizeDisbursementService(LoanRepository loans,DisbursementRepository disbursements,RepaymentScheduleRepository schedules,AmortizationCalculatorPort calculator,Clock clock,WorkflowEventRecorder events,OperationalMetricsPort metrics){this.loans=loans;this.disbursements=disbursements;this.schedules=schedules;this.calculator=calculator;this.clock=clock;this.events=events;this.metrics=metrics;}
     @Transactional public Disbursement finish(UUID loanId,DisbursementResult result){
         var loan=loans.findByIdForUpdate(loanId).orElseThrow(()->new com.loanorigination.loan.application.exception.LoanNotFoundException(loanId));
         Disbursement disbursement=disbursements.findByLoanIdForUpdate(loanId).orElseThrow(()->new LoanNotEligibleForDisbursementException(loanId));
@@ -26,6 +27,7 @@ import com.loanorigination.audit.domain.AuditAction;
         if(disbursement.status()!=DisbursementStatus.PROCESSING)throw new LoanNotEligibleForDisbursementException(loanId);
         if(!result.completed()){
             disbursement.fail(clock.instant(),result.failureReason()==null?"Disbursement provider reported failure":result.failureReason());
+            metrics.increment("disbursements_failed_total");
             disbursements.save(disbursement);return disbursement;
         }
         if(loan.status()!=LoanStatus.PENDING_DISBURSEMENT)throw new LoanNotEligibleForDisbursementException(loanId);

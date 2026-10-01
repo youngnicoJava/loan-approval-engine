@@ -7,7 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.UUID;
 
 /**
@@ -21,13 +21,16 @@ import java.util.UUID;
 public class PrepareLoanApplicationForRiskService {
 
     private final LoanApplicationRepository loanApplicationRepository;
+    private final Clock clock;
 
     @Inject
     public PrepareLoanApplicationForRiskService(
-            LoanApplicationRepository loanApplicationRepository
+            LoanApplicationRepository loanApplicationRepository,
+            Clock clock
     ) {
         this.loanApplicationRepository =
                 loanApplicationRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -44,7 +47,7 @@ public class PrepareLoanApplicationForRiskService {
                                 )
                         );
 
-        loanApplication.startReview(Instant.now());
+        loanApplication.startReview(clock.instant());
 
         loanApplicationRepository.save(
                 loanApplication

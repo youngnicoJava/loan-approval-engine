@@ -10,7 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.UUID;
 import com.loanorigination.audit.application.service.WorkflowEventRecorder;
 import com.loanorigination.audit.domain.AuditAction;
@@ -28,18 +28,21 @@ public class FinalizeRiskAssessmentService {
     private final LoanApplicationRepository loanApplicationRepository;
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final WorkflowEventRecorder events;
+    private final Clock clock;
 
     @Inject
     public FinalizeRiskAssessmentService(
             LoanApplicationRepository loanApplicationRepository,
             RiskAssessmentRepository riskAssessmentRepository,
-            WorkflowEventRecorder events
+            WorkflowEventRecorder events,
+            Clock clock
     ) {
         this.loanApplicationRepository =
                 loanApplicationRepository;
         this.riskAssessmentRepository =
                 riskAssessmentRepository;
         this.events = events;
+        this.clock = clock;
     }
 
     @Transactional
@@ -57,11 +60,12 @@ public class FinalizeRiskAssessmentService {
                                 )
                         );
 
+        var now = clock.instant();
         RiskAssessment assessment =
                 RiskAssessment.create(
                         loanApplicationId,
                         result,
-                        Instant.now()
+                        now
                 );
 
         riskAssessmentRepository.save(
@@ -73,13 +77,13 @@ public class FinalizeRiskAssessmentService {
         switch (result.decision()) {
 
             case APPROVE -> {
-                loanApplication.approve(Instant.now());
+                loanApplication.approve(now);
                 events.record("LoanApplicationApproved", AuditAction.APPLICATION_APPROVED, "LoanApplication", loanApplicationId,
                         java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "source", "RISK_ASSESSMENT"));
             }
 
             case REJECT -> {
-                loanApplication.reject(Instant.now());
+                loanApplication.reject(now);
                 events.record("LoanApplicationRejected", AuditAction.APPLICATION_REJECTED, "LoanApplication", loanApplicationId,
                         java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "source", "RISK_ASSESSMENT"));
             }

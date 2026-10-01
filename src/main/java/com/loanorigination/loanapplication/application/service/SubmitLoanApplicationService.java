@@ -18,7 +18,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -28,18 +28,21 @@ public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCas
     private final CustomerRepository customerRepository;
     private final CurrentUserPort currentUserPort;
     private final WorkflowEventRecorder events;
+    private final Clock clock;
 
     @Inject
     public SubmitLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
             CustomerRepository customerRepository,
             CurrentUserPort currentUserPort,
-            WorkflowEventRecorder events
+            WorkflowEventRecorder events,
+            Clock clock
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.customerRepository = customerRepository;
         this.currentUserPort = currentUserPort;
         this.events = events;
+        this.clock = clock;
     }
 
     @Override
@@ -78,7 +81,7 @@ public class SubmitLoanApplicationService implements SubmitLoanApplicationUseCas
             );
         }
 
-        loanApplication.submit(Instant.now());
+        loanApplication.submit(clock.instant());
 
         loanApplicationRepository.save(loanApplication);
         events.record("LoanApplicationSubmitted", AuditAction.APPLICATION_SUBMITTED, "LoanApplication", loanApplication.id(),

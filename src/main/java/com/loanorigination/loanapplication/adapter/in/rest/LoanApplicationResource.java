@@ -27,6 +27,7 @@ import com.loanorigination.idempotency.application.service.IdempotencyService;
 import com.loanorigination.idempotency.adapter.in.rest.RequestFingerprint;
 
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import java.util.UUID;
 
@@ -70,6 +71,7 @@ public class LoanApplicationResource {
     @POST
     @RolesAllowed("CUSTOMER")
     @Transactional
+    @Operation(summary = "Crear solicitud de préstamo", description = "Crea una solicitud para el cliente autenticado; requiere Idempotency-Key.")
     public Response create(
             @HeaderParam("Idempotency-Key") String key,
             @Valid CreateLoanApplicationRequest request
@@ -104,6 +106,7 @@ public class LoanApplicationResource {
     @Path("/{id}/submit")
     @RolesAllowed("CUSTOMER")
     @Transactional
+    @Operation(summary = "Enviar solicitud", description = "Envía una solicitud propia para su evaluación.")
     public LoanApplicationResponse submit(
             @HeaderParam("Idempotency-Key") String key,
             @PathParam("id") UUID id
@@ -125,6 +128,7 @@ public class LoanApplicationResource {
             "LOAN_OFFICER",
             "ADMIN"
     })
+    @Operation(summary = "Evaluar riesgo", description = "Ejecuta la evaluación de riesgo para una solicitud existente.")
     public RiskAssessmentResponse evaluate(
             @PathParam("id") UUID id
     ) {
@@ -143,6 +147,7 @@ public class LoanApplicationResource {
             "LOAN_OFFICER",
             "ADMIN"
     })
+    @Operation(summary = "Aprobar solicitud", description = "Resolución manual disponible para personal autorizado; requiere Idempotency-Key.")
     @Transactional
     public LoanApplicationResponse approve(
             @HeaderParam("Idempotency-Key") String key,
@@ -161,6 +166,7 @@ public class LoanApplicationResource {
             "LOAN_OFFICER",
             "ADMIN"
     })
+    @Operation(summary = "Rechazar solicitud", description = "Resolución manual disponible para personal autorizado; requiere Idempotency-Key.")
     @Transactional
     public LoanApplicationResponse reject(
             @HeaderParam("Idempotency-Key") String key,

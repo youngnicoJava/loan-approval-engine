@@ -11,7 +11,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.Instant;
+import java.time.Clock;
 
 /**
  * Caso de uso de alta del perfil funcional Customer.
@@ -26,14 +26,17 @@ public class CreateCustomerService
 
     private final CustomerRepository customerRepository;
     private final CurrentUserPort currentUserPort;
+    private final Clock clock;
 
     @Inject
     public CreateCustomerService(
             CustomerRepository customerRepository,
             CurrentUserPort currentUserPort
+            , Clock clock
     ) {
         this.customerRepository = customerRepository;
         this.currentUserPort = currentUserPort;
+        this.clock = clock;
     }
 
     @Override
@@ -58,7 +61,7 @@ public class CreateCustomerService
                 externalIdentityId,
                 command.fullName(),
                 command.email(),
-                Instant.now()
+                clock.instant()
         );
 
         customerRepository.save(customer);
