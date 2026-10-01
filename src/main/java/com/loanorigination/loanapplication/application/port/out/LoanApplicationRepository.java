@@ -16,4 +16,6 @@ public interface LoanApplicationRepository {
     void save(LoanApplication loanApplication);
 
     Optional<LoanApplication> findById(UUID loanApplicationId);
+
+    Optional<LoanApplication> findByIdForUpdate(UUID loanApplicationId);
 }

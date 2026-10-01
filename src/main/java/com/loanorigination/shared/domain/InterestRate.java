@@ -1,6 +1,7 @@
 package com.loanorigination.shared.domain;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.Objects;
 
 /**
@@ -26,5 +27,11 @@ public record InterestRate(
 
     public static InterestRate ofPercentage(BigDecimal percentage) {
         return new InterestRate(percentage);
+    }
+
+    /** Convierte una tasa porcentual nominal anual a tasa periódica mensual. */
+    public BigDecimal monthlyPeriodicRate(MathContext mathContext) {
+        Objects.requireNonNull(mathContext, "mathContext cannot be null");
+        return percentage.divide(BigDecimal.valueOf(1200), mathContext);
     }
 }

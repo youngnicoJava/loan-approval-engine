@@ -1,0 +1,4 @@
+package com.loanorigination.disbursement.application.port.in;
+import com.loanorigination.disbursement.domain.Disbursement;
+import java.util.UUID;
+public interface GetLoanDisbursementUseCase { Disbursement getByLoanId(UUID loanId); }

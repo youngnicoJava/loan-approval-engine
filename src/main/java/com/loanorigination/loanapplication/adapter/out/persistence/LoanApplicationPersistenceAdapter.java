@@ -4,6 +4,7 @@ import com.loanorigination.loanapplication.application.port.out.LoanApplicationR
 import com.loanorigination.loanapplication.domain.LoanApplication;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +56,12 @@ public class LoanApplicationPersistenceAdapter
 
         return repository
                 .findByIdOptional(loanApplicationId)
+                .map(LoanApplicationEntity::toDomain);
+    }
+
+    @Override
+    public Optional<LoanApplication> findByIdForUpdate(UUID loanApplicationId) {
+        return Optional.ofNullable(repository.findById(loanApplicationId, LockModeType.PESSIMISTIC_WRITE))
                 .map(LoanApplicationEntity::toDomain);
     }
 }
