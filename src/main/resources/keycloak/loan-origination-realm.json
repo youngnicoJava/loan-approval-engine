@@ -1,0 +1,163 @@
+{
+  "realm": "loan-origination",
+  "enabled": true,
+  "displayName": "Loan Origination Platform",
+
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Cliente que origina y consulta sus propios préstamos"
+      },
+      {
+        "name": "LOAN_OFFICER",
+        "description": "Operador encargado de revisar y gestionar originaciones"
+      },
+      {
+        "name": "AUDITOR",
+        "description": "Usuario con acceso de lectura a auditoría"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrador de la plataforma"
+      }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "loan-frontend",
+      "name": "Loan Origination Frontend",
+      "description": "SPA React de demostración para Loan Origination Platform",
+      "enabled": true,
+
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "clientAuthenticatorType": "client-secret",
+
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "http://localhost:5173",
+      "adminUrl": "",
+
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email"
+      ],
+
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "customer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Customer",
+      "lastName": "Demo",
+      "email": "customer@loan.local",
+
+      "credentials": [
+        {
+          "type": "password",
+          "value": "customer",
+          "temporary": false
+        }
+      ],
+
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    },
+
+    {
+      "username": "loan-officer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Loan",
+      "lastName": "Officer",
+      "email": "loan-officer@loan.local",
+
+      "credentials": [
+        {
+          "type": "password",
+          "value": "loan-officer",
+          "temporary": false
+        }
+      ],
+
+      "realmRoles": [
+        "LOAN_OFFICER"
+      ]
+    },
+
+    {
+      "username": "auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Auditor",
+      "lastName": "Demo",
+      "email": "auditor@loan.local",
+
+      "credentials": [
+        {
+          "type": "password",
+          "value": "auditor",
+          "temporary": false
+        }
+      ],
+
+      "realmRoles": [
+        "AUDITOR"
+      ]
+    },
+
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "Demo",
+      "email": "admin@loan.local",
+
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ]
+}

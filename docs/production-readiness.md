@@ -15,6 +15,7 @@ En desarrollo se conservan los defaults locales de PostgreSQL y los usuarios de 
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector OTLP gRPC (default: `http://localhost:4317`) |
 | `OTEL_SERVICE_NAME` | Nombre del servicio en los recursos OTel |
 | `OTEL_TRACES_SAMPLER_ARG` | Proporción de muestreo de trazas, entre `0` y `1` (default: `1.0`) |
+| `FRONTEND_ORIGIN` | Único origin permitido por CORS en prod, por ejemplo `https://portal.example.com` |
 
 En producción Flyway conserva la propiedad del schema y Hibernate valida el schema existente. Un fallo de PostgreSQL durante arranque detiene el inicio si Flyway no puede conectarse; una caída posterior degrada readiness y los errores HTTP se responden con el contrato común sin incluir SQL o stack traces.
 
@@ -35,6 +36,6 @@ Los mappers específicos existentes mantienen sus códigos y status y ahora comp
 
 ## Seguridad y límites posteriores
 
-`/api/*` sigue requiriendo autenticación y los resources conservan roles y ownership. Health es público para probes; metrics requiere autenticación en prod. No se habilitó CORS global. `Dockerfile.jvm` ya ejecuta la imagen JVM Java 25 con UID no-root y recibe `PORT` a través de Quarkus. Para despliegues expuestos a internet, el rate limiting distribuido debe aplicarse luego en gateway/proxy o con infraestructura dedicada; esta entrega no incorpora Redis ni un limitador distribuido.
+`/api/*` sigue requiriendo autenticación y los resources conservan roles y ownership. Health es público para probes; metrics requiere autenticación en prod. CORS usa `FRONTEND_ORIGIN` explícito en prod (no comodín), y localhost:5173 en dev. `Dockerfile.jvm` ejecuta la imagen JVM Java 25 con UID no-root y recibe `PORT` a través de Quarkus. Para despliegues expuestos a internet, el rate limiting distribuido debe aplicarse luego en gateway/proxy o con infraestructura dedicada; esta entrega no incorpora Redis ni un limitador distribuido.
 
 El test generado `GreetingResourceTest` y su variante IT se eliminaron porque `/hello` no es una capacidad del producto. Fueron reemplazados por pruebas del API y observabilidad reales en `ProductionReadinessTest`.

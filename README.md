@@ -1,79 +1,61 @@
-# loan-origination-platform
+# Loan Origination Platform
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Plataforma de originación de préstamos construida como monolito modular: API Quarkus en Java 25, PostgreSQL y un pequeño portal React para mostrar el flujo financiero.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Arquitectura
 
-## Running the application in dev mode
+```text
+frontend (OIDC SPA) → Quarkus REST API → dominio hexagonal → PostgreSQL
+```
 
-You can run your application in dev mode that enables live coding using:
+El backend incluye clientes, solicitudes, evaluación, ofertas, préstamos, desembolsos, cuotas, auditoría, outbox e idempotencia. El contrato HTTP público es `/api/v1`.
 
-```shell script
+## Backend y desarrollo local
+
+Requiere Java 25, Maven y PostgreSQL. `docker compose up -d postgres` inicia la base local en `localhost:5432`; el backend permite ajustar el puerto mediante `DB_JDBC_URL`.
+
+```powershell
+$env:DB_JDBC_URL='jdbc:postgresql://localhost:5432/loan_origination'
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Dev Services aporta Keycloak local en modo dev. No hay usuarios de producción definidos en el frontend ni se deben reutilizar credenciales de desarrollo en prod.
 
-## Packaging and running the application
+## Frontend
 
-The application can be packaged using:
+El portal de demo está en `frontend/` y usa React, TypeScript, Vite y Bun. Configurá `frontend/.env` con los valores de `frontend/.env.example`, registrados como SPA pública en el proveedor OIDC y con Authorization Code + PKCE habilitado. El proveedor debe emitir roles `CUSTOMER`, `LOAN_OFFICER`, `AUDITOR` o `ADMIN`; la API sigue imponiendo acceso y ownership.
 
-```shell script
+```powershell
+cd frontend
+bun install
+bun run dev
+bun run build
+```
+
+`VITE_API_URL` define la base API (vacía usa proxy local a `localhost:8080`). En producción configurá `FRONTEND_ORIGIN` en el backend y la URL pública de API como `VITE_API_URL` antes del build. El API no tiene un endpoint de listado de solicitudes propias; el portal deja consultar la solicitud por su ID luego de crearla. Los valores `VITE_*` quedan incluidos en el bundle: nunca pongas secretos allí.
+
+## Quality gate
+
+```powershell
+./mvnw test
+./mvnw verify
 ./mvnw package
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+GitHub Actions ejecuta Java 25 y `mvn verify` en cada push a `main` y pull request.
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+## Docker y Railway
 
-If you want to build an _über-jar_, execute the following command:
+La imagen JVM se construye después de `./mvnw package` usando `docker build -f src/main/docker/Dockerfile.jvm -t loan-origination-platform .`. En producción, Railway necesita PostgreSQL privado y API pública. Configurá `PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_JDBC_URL`, `OIDC_AUTH_SERVER_URL`, `FRONTEND_ORIGIN` y las variables `OTEL_*` sólo si se exportarán trazas. Flyway ejecuta migraciones al arranque y Hibernate valida el schema.
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
+El provider OIDC real debe aceptar la URL pública de frontend como redirect URI y CORS origin, emitir tokens JWT con `sub` estable y los roles esperados, y confiar en la URL issuer configurada en `OIDC_AUTH_SERVER_URL`. Las credenciales/cuentas de Railway, GitHub y el issuer productivo se configuran fuera del repo.
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+## Live demo
 
-## Creating a native executable
+Sin URL publicada por el momento. Este espacio queda listo para enlazar la API y el portal cuando se configure el proveedor OIDC y se desplieguen los servicios.
 
-You can create a native executable using:
+## Operación
 
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/loan-origination-platform-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- Hibernate ORM with Panache ([guide](https://quarkus.io/guides/hibernate-orm-panache)): Simplified JPA/Hibernate data access layer with active record and repository patterns
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- SmallRye OpenAPI ([guide](https://quarkus.io/guides/openapi-swaggerui)): Generate OpenAPI schemas and serve Swagger UI for REST API documentation
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### Hibernate ORM
-
-Create your first JPA entity
-
-[Related guide section...](https://quarkus.io/guides/hibernate-orm)
-
-
-[Related Hibernate with Panache section...](https://quarkus.io/guides/hibernate-orm-panache)
-
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+- Liveness: `/q/health/live`; readiness incluye PostgreSQL: `/q/health/ready`.
+- OpenAPI: `/q/openapi`; métricas Prometheus: `/q/metrics` (autenticado en prod).
+- Trazas OTLP opcionales y logs JSON en prod. Variables detalladas en [`docs/production-readiness.md`](docs/production-readiness.md).
