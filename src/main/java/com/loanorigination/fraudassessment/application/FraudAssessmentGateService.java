@@ -16,22 +16,26 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class FraudAssessmentGateService {
   private final FraudAssessmentRepository fraud;
+  private final FraudCaseResolutionRepository caseResolutions;
   private final RiskAssessmentRepository credit;
   private final LoanApplicationRepository applications;
   private final Clock clock;
   private final String mode;
   private final com.loanorigination.audit.application.service.WorkflowEventRecorder events;
-  @Inject public FraudAssessmentGateService(FraudAssessmentRepository fraud,RiskAssessmentRepository credit,
+  @Inject public FraudAssessmentGateService(FraudAssessmentRepository fraud,FraudCaseResolutionRepository caseResolutions,RiskAssessmentRepository credit,
       LoanApplicationRepository applications,Clock clock,
       @ConfigProperty(name="app.fraud.mode",defaultValue="LOCAL") String mode,
       com.loanorigination.audit.application.service.WorkflowEventRecorder events) {
-    this.fraud=fraud; this.credit=credit; this.applications=applications; this.clock=clock; this.mode=mode; this.events=events;
+    this.fraud=fraud; this.caseResolutions=caseResolutions; this.credit=credit; this.applications=applications; this.clock=clock; this.mode=mode; this.events=events;
   }
   public boolean required() { return "KAFKA".equalsIgnoreCase(mode); }
   public boolean isCleared(UUID applicationId) {
     if (!required()) return true;
-    return fraud.findLatestByApplicationId(applicationId)
+    boolean automatedPass = fraud.findLatestByApplicationId(applicationId)
         .map(r -> FraudGatePolicy.isCleared(r.decision())).orElse(false);
+    boolean manuallyCleared = caseResolutions.findLatestByLoanApplicationId(applicationId)
+        .map(r -> "CLEARED".equals(r.resolution())).orElse(false);
+    return automatedPass || manuallyCleared;
   }
   public void assertCleared(UUID applicationId) {
     if (!isCleared(applicationId)) throw new FraudAssessmentGateNotClearedException(applicationId);
