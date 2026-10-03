@@ -32,12 +32,14 @@ import com.loanorigination.audit.domain.AuditAction;
 @ApplicationScoped
 public class IssueLoanOfferService implements IssueLoanOfferUseCase {
     private final LoanApplicationRepository applications; private final CustomerRepository customers; private final LoanOfferRepository offers; private final Clock clock; private final AmortizationCalculatorPort amortizationCalculator; private final WorkflowEventRecorder events;
-    @Inject public IssueLoanOfferService(LoanApplicationRepository applications, CustomerRepository customers, LoanOfferRepository offers, Clock clock, AmortizationCalculatorPort amortizationCalculator, WorkflowEventRecorder events) {
-        this.applications=applications; this.customers=customers; this.offers=offers; this.clock=clock; this.amortizationCalculator=amortizationCalculator; this.events=events;
+    private final com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate;
+    @Inject public IssueLoanOfferService(LoanApplicationRepository applications, CustomerRepository customers, LoanOfferRepository offers, Clock clock, AmortizationCalculatorPort amortizationCalculator, WorkflowEventRecorder events, com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate) {
+        this.applications=applications; this.customers=customers; this.offers=offers; this.clock=clock; this.amortizationCalculator=amortizationCalculator; this.events=events; this.fraudGate=fraudGate;
     }
     @Override @Transactional public LoanOffer issue(UUID applicationId, BigDecimal offeredPrincipal, Integer offeredTermMonths, BigDecimal annualRatePercentage, Instant expiresAt) {
         LoanApplication app=applications.findByIdForUpdate(applicationId).orElseThrow(()->new LoanApplicationNotFoundException(applicationId));
         if (app.status()!=LoanApplicationStatus.APPROVED) throw new LoanApplicationNotApprovedException(applicationId);
+        fraudGate.assertCleared(applicationId);
         Customer customer=customers.findById(app.customerId()).orElseThrow(()->new CustomerNotFoundException(app.customerId()));
         if (customer.status()==CustomerStatus.BLOCKED) throw new CustomerBlockedException(customer.id());
         Instant now=clock.instant();

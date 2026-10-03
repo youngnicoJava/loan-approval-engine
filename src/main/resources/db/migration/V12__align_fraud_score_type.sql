@@ -1,0 +1,1 @@
+ALTER TABLE fraud_assessments ALTER COLUMN fraud_score TYPE INTEGER;

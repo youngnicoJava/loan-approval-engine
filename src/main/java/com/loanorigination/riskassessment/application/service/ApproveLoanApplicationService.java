@@ -20,17 +20,20 @@ public class ApproveLoanApplicationService
     private final LoanApplicationRepository loanApplicationRepository;
     private final WorkflowEventRecorder events;
     private final Clock clock;
+    private final com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate;
 
     @Inject
     public ApproveLoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
             WorkflowEventRecorder events,
-            Clock clock
+            Clock clock,
+            com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate
     ) {
         this.loanApplicationRepository =
                 loanApplicationRepository;
         this.events = events;
         this.clock = clock;
+        this.fraudGate = fraudGate;
     }
 
     @Override
@@ -47,6 +50,8 @@ public class ApproveLoanApplicationService
                                         loanApplicationId
                                 )
                         );
+
+        fraudGate.assertCleared(loanApplicationId);
 
         loanApplication.approve(
                 clock.instant()

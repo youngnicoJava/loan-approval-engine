@@ -29,13 +29,15 @@ public class FinalizeRiskAssessmentService {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final WorkflowEventRecorder events;
     private final Clock clock;
+    private final com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate;
 
     @Inject
     public FinalizeRiskAssessmentService(
             LoanApplicationRepository loanApplicationRepository,
             RiskAssessmentRepository riskAssessmentRepository,
             WorkflowEventRecorder events,
-            Clock clock
+            Clock clock,
+            com.loanorigination.fraudassessment.application.FraudAssessmentGateService fraudGate
     ) {
         this.loanApplicationRepository =
                 loanApplicationRepository;
@@ -43,6 +45,7 @@ public class FinalizeRiskAssessmentService {
                 riskAssessmentRepository;
         this.events = events;
         this.clock = clock;
+        this.fraudGate = fraudGate;
     }
 
     @Transactional
@@ -92,12 +95,20 @@ public class FinalizeRiskAssessmentService {
         events.record("RiskAssessmentCompleted", AuditAction.RISK_ASSESSMENT_COMPLETED, "LoanApplication", loanApplicationId,
                 java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "decision", result.decision().name()));
 
+        if (loanApplication.status() != com.loanorigination.loanapplication.domain.LoanApplicationStatus.UNDER_REVIEW) {
+            return assessment;
+        }
+
         switch (result.decision()) {
 
             case APPROVE -> {
-                loanApplication.approve(now);
-                events.record("LoanApplicationApproved", AuditAction.APPLICATION_APPROVED, "LoanApplication", loanApplicationId,
-                        java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "source", "RISK_ASSESSMENT"));
+                if (fraudGate.required()) {
+                    fraudGate.approveIfBothAutomatedGatesPass(loanApplication);
+                } else {
+                    loanApplication.approve(now);
+                    events.record("LoanApplicationApproved", AuditAction.APPLICATION_APPROVED, "LoanApplication", loanApplicationId,
+                            java.util.Map.of("loanApplicationId", loanApplicationId.toString(), "source", "RISK_ASSESSMENT"));
+                }
             }
 
             case REJECT -> {
