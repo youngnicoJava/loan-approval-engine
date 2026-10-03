@@ -3,6 +3,7 @@ package com.loanorigination.loanapplication.application.command;
 import com.loanorigination.loanapplication.domain.LoanProductType;
 import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
+import com.loanorigination.loanapplication.domain.ApplicantFinancialProfile;
 
 import java.util.Objects;
 /**
@@ -15,7 +16,8 @@ public record CreateLoanApplicationCommand(
         LoanProductType productType,
         Money requestedAmount,
         LoanTerm term,
-        String purpose
+        String purpose,
+        ApplicantFinancialProfile financialProfile
 ) {
 
     public CreateLoanApplicationCommand {
@@ -26,5 +28,6 @@ public record CreateLoanApplicationCommand(
         );
         Objects.requireNonNull(term, "term cannot be null");
         Objects.requireNonNull(purpose, "purpose cannot be null");
+        Objects.requireNonNull(financialProfile, "financialProfile cannot be null");
     }
 }

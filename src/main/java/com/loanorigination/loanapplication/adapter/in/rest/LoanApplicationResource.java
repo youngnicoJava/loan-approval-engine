@@ -9,6 +9,8 @@ import com.loanorigination.riskassessment.adapter.in.rest.RiskAssessmentResponse
 import com.loanorigination.riskassessment.application.port.in.ApproveLoanApplicationUseCase;
 import com.loanorigination.riskassessment.application.port.in.EvaluateLoanApplicationUseCase;
 import com.loanorigination.riskassessment.application.port.in.RejectLoanApplicationUseCase;
+import com.loanorigination.riskassessment.application.port.in.RequestExternalRiskAssessmentUseCase;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -46,6 +48,9 @@ public class LoanApplicationResource {
     private final RejectLoanApplicationUseCase rejectLoanApplicationUseCase;
     private final IdempotencyService idempotency;
     private final RequestFingerprint fingerprint;
+    private final RequestExternalRiskAssessmentUseCase requestExternalRiskAssessmentUseCase;
+    @ConfigProperty(name = "app.risk.mode", defaultValue = "LOCAL")
+    String riskMode;
 
     @Inject
     public LoanApplicationResource(
@@ -56,7 +61,8 @@ public class LoanApplicationResource {
             ApproveLoanApplicationUseCase approveLoanApplicationUseCase,
             RejectLoanApplicationUseCase rejectLoanApplicationUseCase,
             IdempotencyService idempotency,
-            RequestFingerprint fingerprint
+            RequestFingerprint fingerprint,
+            RequestExternalRiskAssessmentUseCase requestExternalRiskAssessmentUseCase
     ) {
         this.createLoanApplicationUseCase = createLoanApplicationUseCase;
         this.getLoanApplicationUseCase = getLoanApplicationUseCase;
@@ -66,7 +72,9 @@ public class LoanApplicationResource {
         this.rejectLoanApplicationUseCase = rejectLoanApplicationUseCase;
         this.idempotency=idempotency;
         this.fingerprint=fingerprint;
+        this.requestExternalRiskAssessmentUseCase = requestExternalRiskAssessmentUseCase;
     }
+
 
     @POST
     @RolesAllowed("CUSTOMER")
@@ -102,6 +110,7 @@ public class LoanApplicationResource {
         );
     }
 
+
     @POST
     @Path("/{id}/submit")
     @RolesAllowed("CUSTOMER")
@@ -129,14 +138,17 @@ public class LoanApplicationResource {
             "ADMIN"
     })
     @Operation(summary = "Evaluar riesgo", description = "Ejecuta la evaluación de riesgo para una solicitud existente.")
-    public RiskAssessmentResponse evaluate(
+    public Response evaluate(
             @PathParam("id") UUID id
     ) {
-
-        return RiskAssessmentResponse.from(
-                evaluateLoanApplicationUseCase.evaluate(id)
-        );
+        if ("KAFKA".equalsIgnoreCase(riskMode)) {
+            requestExternalRiskAssessmentUseCase.request(id);
+            return Response.accepted(new ExternalRiskRequestResponse(id, "UNDER_REVIEW", "Risk assessment queued for Credit Risk Engine.")).build();
+        }
+        return Response.ok(RiskAssessmentResponse.from(evaluateLoanApplicationUseCase.evaluate(id))).build();
     }
+
+    public record ExternalRiskRequestResponse(UUID loanApplicationId, String status, String message) { }
 
     /**
      * Resolución manual de una solicitud que quedó REFER.

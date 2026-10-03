@@ -5,6 +5,8 @@ import com.loanorigination.audit.domain.AuditAction;
 import com.loanorigination.loanapplication.application.port.out.LoanApplicationRepository;
 import com.loanorigination.loanapplication.domain.LoanApplication;
 import com.loanorigination.loanapplication.domain.LoanProductType;
+import com.loanorigination.loanapplication.domain.ApplicantFinancialProfile;
+import com.loanorigination.loanapplication.domain.ApplicantEmploymentStatus;
 import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
 import jakarta.enterprise.context.control.ActivateRequestContext;
@@ -68,7 +70,7 @@ class WorkflowEventAtomicityTest {
     private LoanApplication application(UUID customer){
         var application=LoanApplication.create(customer,LoanProductType.PERSONAL_LOAN,
                 Money.of(new BigDecimal("10000.00"),Currency.getInstance("ARS")),LoanTerm.ofMonths(12),
-                "atomicity-test",Instant.now());
+                "atomicity-test",new ApplicantFinancialProfile(Money.of(new BigDecimal("250000.00"),Currency.getInstance("ARS")),Money.of(BigDecimal.ZERO,Currency.getInstance("ARS")),ApplicantEmploymentStatus.PERMANENT,24),Instant.now());
         return application;
     }
 

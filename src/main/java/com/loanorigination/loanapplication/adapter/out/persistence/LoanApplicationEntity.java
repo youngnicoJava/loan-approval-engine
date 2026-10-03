@@ -3,6 +3,8 @@ package com.loanorigination.loanapplication.adapter.out.persistence;
 import com.loanorigination.loanapplication.domain.LoanApplication;
 import com.loanorigination.loanapplication.domain.LoanApplicationStatus;
 import com.loanorigination.loanapplication.domain.LoanProductType;
+import com.loanorigination.loanapplication.domain.ApplicantFinancialProfile;
+import com.loanorigination.loanapplication.domain.ApplicantEmploymentStatus;
 import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -50,6 +52,19 @@ public class LoanApplicationEntity extends PanacheEntityBase {
     @Column(nullable = false, length = 500)
     private String purpose;
 
+    @Column(name = "monthly_income", precision = 19, scale = 2)
+    private BigDecimal monthlyIncome;
+
+    @Column(name = "existing_monthly_debt_obligations", precision = 19, scale = 2)
+    private BigDecimal existingMonthlyDebtObligations;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "employment_status", length = 30)
+    private ApplicantEmploymentStatus employmentStatus;
+
+    @Column(name = "employment_tenure_months")
+    private Integer employmentTenureMonths;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private LoanApplicationStatus status;
@@ -91,6 +106,10 @@ public class LoanApplicationEntity extends PanacheEntityBase {
         this.currency = loanApplication.requestedAmount().currency().getCurrencyCode();
         this.termMonths = loanApplication.term().months();
         this.purpose = loanApplication.purpose();
+        this.monthlyIncome = loanApplication.financialProfile() == null ? null : loanApplication.financialProfile().monthlyIncome().amount();
+        this.existingMonthlyDebtObligations = loanApplication.financialProfile() == null ? null : loanApplication.financialProfile().existingMonthlyDebtObligations().amount();
+        this.employmentStatus = loanApplication.financialProfile() == null ? null : loanApplication.financialProfile().employmentStatus();
+        this.employmentTenureMonths = loanApplication.financialProfile() == null ? null : loanApplication.financialProfile().employmentTenureMonths();
         this.status = loanApplication.status();
         this.createdAt = loanApplication.createdAt();
         this.submittedAt = loanApplication.submittedAt();
@@ -109,10 +128,16 @@ public class LoanApplicationEntity extends PanacheEntityBase {
                 ),
                 LoanTerm.ofMonths(termMonths),
                 purpose,
+                financialProfile(),
                 status,
                 createdAt,
                 submittedAt,
                 updatedAt
         );
+    }
+
+    private ApplicantFinancialProfile financialProfile() {
+        if (monthlyIncome == null || existingMonthlyDebtObligations == null || employmentStatus == null || employmentTenureMonths == null) return null;
+        return new ApplicantFinancialProfile(Money.of(monthlyIncome, Currency.getInstance(currency)), Money.of(existingMonthlyDebtObligations, Currency.getInstance(currency)), employmentStatus, employmentTenureMonths);
     }
 }

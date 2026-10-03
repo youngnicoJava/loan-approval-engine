@@ -12,6 +12,8 @@ public interface RiskAssessmentRepository {
 
     void save(RiskAssessment riskAssessment);
 
+    Optional<RiskAssessment> findById(UUID assessmentId);
+
     Optional<RiskAssessment> findLatestByLoanApplicationId(
             UUID loanApplicationId
     );

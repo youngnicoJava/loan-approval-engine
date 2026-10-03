@@ -52,7 +52,7 @@ class LoanOfferAcceptanceConcurrencyTest {
         var money=Money.of(new BigDecimal("10000.00"),Currency.getInstance("ARS"));
         var term=LoanTerm.ofMonths(12);
         LoanApplication application=LoanApplication.restore(UUID.randomUUID(),customer.id(),LoanProductType.PERSONAL_LOAN,
-                money,term,"concurrent acceptance",LoanApplicationStatus.APPROVED,now,now,now);
+                money,term,"concurrent acceptance",new com.loanorigination.loanapplication.domain.ApplicantFinancialProfile(money,money,com.loanorigination.loanapplication.domain.ApplicantEmploymentStatus.PERMANENT,24),LoanApplicationStatus.APPROVED,now,now,now);
         LoanOffer offer=LoanOffer.create(application.id(),customer.id(),money,term,InterestRate.ofPercentage(new BigDecimal("12.0000")),
                 new BigDecimal("888.89"),new BigDecimal("10666.68"),now,now.plusSeconds(3600));
         transaction.begin();

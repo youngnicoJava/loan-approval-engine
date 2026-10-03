@@ -50,6 +50,15 @@ public class FinalizeRiskAssessmentService {
             UUID loanApplicationId,
             RiskAssessmentResult result
     ) {
+        return finalizeWithId(UUID.randomUUID(), loanApplicationId, result);
+    }
+
+    @Transactional
+    public RiskAssessment finalizeExternal(UUID assessmentId, UUID loanApplicationId, RiskAssessmentResult result) {
+        return finalizeWithId(assessmentId, loanApplicationId, result);
+    }
+
+    private RiskAssessment finalizeWithId(UUID assessmentId, UUID loanApplicationId, RiskAssessmentResult result) {
 
         LoanApplication loanApplication =
                 loanApplicationRepository
@@ -60,9 +69,18 @@ public class FinalizeRiskAssessmentService {
                                 )
                         );
 
+        var duplicate = riskAssessmentRepository.findById(assessmentId);
+        if (duplicate.isPresent()) {
+            if (!duplicate.get().loanApplicationId().equals(loanApplicationId)) {
+                throw new IllegalArgumentException("Risk assessment event does not match its application");
+            }
+            return duplicate.get();
+        }
+
         var now = clock.instant();
         RiskAssessment assessment =
                 RiskAssessment.create(
+                        assessmentId,
                         loanApplicationId,
                         result,
                         now

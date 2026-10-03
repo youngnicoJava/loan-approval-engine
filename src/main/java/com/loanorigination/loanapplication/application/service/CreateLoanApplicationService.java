@@ -69,6 +69,7 @@ public class CreateLoanApplicationService
                 command.requestedAmount(),
                 command.term(),
                 command.purpose(),
+                command.financialProfile(),
                 clock.instant()
         );
 

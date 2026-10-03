@@ -36,12 +36,16 @@ public class WorkflowEventRecorder {
     }
 
     public void record(String eventType,AuditAction action,String aggregateType,UUID aggregateId,Map<String,Object> payload){
+        record(eventType,1,action,aggregateType,aggregateId,payload);
+    }
+
+    public void record(String eventType,int eventVersion,AuditAction action,String aggregateType,UUID aggregateId,Map<String,Object> payload){
         var time=clock.instant();
         UUID eventId=UUID.randomUUID();
         String correlationId;
         try { correlationId=correlation.current(); }
         catch (ContextNotActiveException noRequest) { correlationId=UUID.randomUUID().toString(); }
-        DomainEvent event=new DomainEvent(eventId,eventType,1,time,aggregateType,aggregateId,correlationId,payload);
+        DomainEvent event=new DomainEvent(eventId,eventType,eventVersion,time,aggregateType,aggregateId,correlationId,payload);
         String json=codec.encode(event.payload());
         AuditActorType actorType=AuditActorType.SYSTEM;
         String actorId="system";

@@ -57,4 +57,8 @@ public record RiskAssessment(
                 assessedAt
         );
     }
+
+    public static RiskAssessment create(UUID assessmentId, UUID loanApplicationId, RiskAssessmentResult result, Instant assessedAt) {
+        return new RiskAssessment(assessmentId, loanApplicationId, result.decision(), result.reasonCode(), result.source(), assessedAt);
+    }
 }

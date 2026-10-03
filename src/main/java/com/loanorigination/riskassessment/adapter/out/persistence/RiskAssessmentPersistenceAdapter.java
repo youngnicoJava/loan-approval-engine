@@ -32,6 +32,11 @@ public class RiskAssessmentPersistenceAdapter
     }
 
     @Override
+    public Optional<RiskAssessment> findById(UUID assessmentId) {
+        return repository.findByIdOptional(assessmentId).map(RiskAssessmentEntity::toDomain);
+    }
+
+    @Override
     public Optional<RiskAssessment>
     findLatestByLoanApplicationId(
             UUID loanApplicationId

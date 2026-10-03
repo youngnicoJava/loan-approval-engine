@@ -4,6 +4,8 @@ import com.loanorigination.loanapplication.application.command.CreateLoanApplica
 import com.loanorigination.loanapplication.domain.LoanProductType;
 import com.loanorigination.shared.domain.LoanTerm;
 import com.loanorigination.shared.domain.Money;
+import com.loanorigination.loanapplication.domain.ApplicantEmploymentStatus;
+import com.loanorigination.loanapplication.domain.ApplicantFinancialProfile;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -33,7 +35,19 @@ public record CreateLoanApplicationRequest(
 
         @NotBlank
         @Size(max = 500)
-        String purpose
+        String purpose,
+
+        @NotNull @DecimalMin("0.01") @jakarta.validation.constraints.Digits(integer = 17, fraction = 2)
+        BigDecimal monthlyIncome,
+
+        @NotNull @DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer = 17, fraction = 2)
+        BigDecimal existingMonthlyDebtObligations,
+
+        @NotNull
+        ApplicantEmploymentStatus employmentStatus,
+
+        @Min(0) @jakarta.validation.constraints.Max(600)
+        int employmentTenureMonths
 
 ) {
 
@@ -50,7 +64,13 @@ public record CreateLoanApplicationRequest(
                         Currency.getInstance(normalizedCurrency)
                 ),
                 LoanTerm.ofMonths(termMonths),
-                purpose
+                purpose,
+                new ApplicantFinancialProfile(
+                        Money.of(monthlyIncome, Currency.getInstance(normalizedCurrency)),
+                        Money.of(existingMonthlyDebtObligations, Currency.getInstance(normalizedCurrency)),
+                        employmentStatus,
+                        employmentTenureMonths
+                )
         );
     }
 }

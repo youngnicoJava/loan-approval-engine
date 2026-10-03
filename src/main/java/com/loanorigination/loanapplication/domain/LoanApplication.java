@@ -25,6 +25,7 @@ public final class LoanApplication {
     private final Money requestedAmount;
     private final LoanTerm term;
     private final String purpose;
+    private final ApplicantFinancialProfile financialProfile;
     private final Instant createdAt;
 
     private LoanApplicationStatus status;
@@ -38,6 +39,7 @@ public final class LoanApplication {
             Money requestedAmount,
             LoanTerm term,
             String purpose,
+            ApplicantFinancialProfile financialProfile,
             LoanApplicationStatus status,
             Instant createdAt,
             Instant submittedAt,
@@ -52,6 +54,7 @@ public final class LoanApplication {
         }
         this.term = Objects.requireNonNull(term, "term cannot be null");
         this.purpose = requirePurpose(purpose);
+        this.financialProfile = financialProfile;
         this.status = Objects.requireNonNull(status, "status cannot be null");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt cannot be null");
         this.submittedAt = submittedAt;
@@ -67,6 +70,7 @@ public final class LoanApplication {
             Money requestedAmount,
             LoanTerm term,
             String purpose,
+            ApplicantFinancialProfile financialProfile,
             Instant now
     ) {
         Objects.requireNonNull(now, "now cannot be null");
@@ -78,6 +82,7 @@ public final class LoanApplication {
                 requestedAmount,
                 term,
                 purpose,
+                Objects.requireNonNull(financialProfile, "financialProfile cannot be null"),
                 LoanApplicationStatus.DRAFT,
                 now,
                 null,
@@ -98,6 +103,7 @@ public final class LoanApplication {
             Money requestedAmount,
             LoanTerm term,
             String purpose,
+            ApplicantFinancialProfile financialProfile,
             LoanApplicationStatus status,
             Instant createdAt,
             Instant submittedAt,
@@ -110,6 +116,7 @@ public final class LoanApplication {
                 requestedAmount,
                 term,
                 purpose,
+                financialProfile,
                 status,
                 createdAt,
                 submittedAt,
@@ -124,6 +131,9 @@ public final class LoanApplication {
         Objects.requireNonNull(now, "now cannot be null");
 
         ensureStatus(LoanApplicationStatus.DRAFT, "Only draft applications can be submitted");
+        if (financialProfile == null) {
+            throw new InvalidLoanApplicationStateException("Financial profile is required before an application can be submitted");
+        }
 
         this.status = LoanApplicationStatus.SUBMITTED;
         this.submittedAt = now;
@@ -249,6 +259,8 @@ public final class LoanApplication {
     public String purpose() {
         return purpose;
     }
+
+    public ApplicantFinancialProfile financialProfile() { return financialProfile; }
 
     public LoanApplicationStatus status() {
         return status;

@@ -3,8 +3,10 @@ package com.loanorigination.outbox.adapter.out.local;
 import com.loanorigination.outbox.application.port.out.EventPublisherPort;
 import com.loanorigination.outbox.domain.IntegrationEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import io.quarkus.arc.DefaultBean;
 import org.jboss.logging.Logger;
 
+@DefaultBean
 @ApplicationScoped
 public class LoggingEventPublisherAdapter implements EventPublisherPort {
     private static final Logger LOG=Logger.getLogger(LoggingEventPublisherAdapter.class);
