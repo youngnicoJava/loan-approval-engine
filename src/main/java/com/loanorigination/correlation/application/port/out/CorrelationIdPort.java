@@ -1,3 +1,6 @@
 package com.loanorigination.correlation.application.port.out;
 
-public interface CorrelationIdPort { String current(); }
+public interface CorrelationIdPort {
+    String current();
+    void set(String correlationId);
+}
