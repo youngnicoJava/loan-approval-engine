@@ -5,6 +5,6 @@ import com.loanorigination.audit.domain.AuditActorType;
 import java.time.Instant;
 import java.util.UUID;
 public record AuditEventResponse(UUID id,UUID eventId,String actorId,AuditActorType actorType,AuditAction action,
-        String aggregateType,UUID aggregateId,Instant occurredAt,String correlationId){
- public static AuditEventResponse from(AuditEvent e){return new AuditEventResponse(e.id(),e.eventId(),e.actorId(),e.actorType(),e.action(),e.aggregateType(),e.aggregateId(),e.occurredAt(),e.correlationId());}
+        String aggregateType,UUID aggregateId,Instant occurredAt,String correlationId,String metadata){
+ public static AuditEventResponse from(AuditEvent e){return new AuditEventResponse(e.id(),e.eventId(),e.actorId(),e.actorType(),e.action(),e.aggregateType(),e.aggregateId(),e.occurredAt(),e.correlationId(),e.metadata());}
 }

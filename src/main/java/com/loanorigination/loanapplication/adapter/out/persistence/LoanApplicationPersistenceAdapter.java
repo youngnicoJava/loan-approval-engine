@@ -7,7 +7,9 @@ import jakarta.inject.Inject;
 import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
+import com.loanorigination.loanapplication.domain.LoanApplicationStatus;
 
 /**
  * Adaptador de persistencia que implementa el puerto definido por la aplicación.
@@ -63,5 +65,15 @@ public class LoanApplicationPersistenceAdapter
     public Optional<LoanApplication> findByIdForUpdate(UUID loanApplicationId) {
         return Optional.ofNullable(repository.findById(loanApplicationId, LockModeType.PESSIMISTIC_WRITE))
                 .map(LoanApplicationEntity::toDomain);
+    }
+
+    @Override
+    public List<LoanApplication> findByCustomerId(UUID customerId) {
+        return repository.findByCustomer(customerId).stream().map(LoanApplicationEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<LoanApplication> findForQueue(LoanApplicationStatus status, int offset, int limit) {
+        return repository.findQueue(status, offset, limit).stream().map(LoanApplicationEntity::toDomain).toList();
     }
 }

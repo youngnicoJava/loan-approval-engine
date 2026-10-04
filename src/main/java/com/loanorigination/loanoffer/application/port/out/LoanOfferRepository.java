@@ -8,5 +8,6 @@ public interface LoanOfferRepository {
     Optional<LoanOffer> findById(UUID id);
     Optional<LoanOffer> findByIdForUpdate(UUID id);
     Optional<LoanOffer> findActiveByApplicationId(UUID applicationId);
+    Optional<LoanOffer> findByApplicationId(UUID applicationId);
     List<LoanOffer> findByCustomerId(UUID customerId);
 }

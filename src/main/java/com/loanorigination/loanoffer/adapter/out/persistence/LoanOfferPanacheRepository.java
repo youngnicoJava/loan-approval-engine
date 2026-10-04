@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 @ApplicationScoped public class LoanOfferPanacheRepository implements PanacheRepositoryBase<LoanOfferEntity, UUID> {
     public Optional<LoanOfferEntity> findByApplication(UUID id){return find("loanApplicationId = ?1 and status in ('PENDING','ACCEPTED')",id).firstResultOptional();}
+    public Optional<LoanOfferEntity> findLatestByApplication(UUID id){return find("loanApplicationId = ?1 order by createdAt desc",id).firstResultOptional();}
     public List<LoanOfferEntity> findForCustomer(UUID id){return find("customerId",id).list();}
     public Optional<LoanOfferEntity> findLocked(UUID id){return Optional.ofNullable(findById(id,LockModeType.PESSIMISTIC_WRITE));}
 }

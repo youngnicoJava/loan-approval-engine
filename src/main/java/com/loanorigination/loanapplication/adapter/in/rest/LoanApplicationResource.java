@@ -5,10 +5,13 @@ import com.loanorigination.loanapplication.adapter.in.rest.dto.LoanApplicationRe
 import com.loanorigination.loanapplication.application.port.in.CreateLoanApplicationUseCase;
 import com.loanorigination.loanapplication.application.port.in.GetLoanApplicationUseCase;
 import com.loanorigination.loanapplication.application.port.in.SubmitLoanApplicationUseCase;
+import com.loanorigination.loanapplication.application.port.in.ListLoanApplicationsUseCase;
+import com.loanorigination.loanapplication.domain.LoanApplicationStatus;
 import com.loanorigination.riskassessment.adapter.in.rest.RiskAssessmentResponse;
 import com.loanorigination.riskassessment.application.port.in.ApproveLoanApplicationUseCase;
 import com.loanorigination.riskassessment.application.port.in.EvaluateLoanApplicationUseCase;
 import com.loanorigination.riskassessment.application.port.in.RejectLoanApplicationUseCase;
+import com.loanorigination.riskassessment.application.port.in.GetLatestRiskAssessmentUseCase;
 import com.loanorigination.riskassessment.application.port.in.RequestExternalRiskAssessmentUseCase;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -32,6 +35,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 
 import java.util.UUID;
+import java.util.List;
 
 @Path("/api/v1/loan-applications")
 @Produces(MediaType.APPLICATION_JSON)
@@ -48,6 +52,8 @@ public class LoanApplicationResource {
     private final RejectLoanApplicationUseCase rejectLoanApplicationUseCase;
     private final IdempotencyService idempotency;
     private final RequestFingerprint fingerprint;
+    private final ListLoanApplicationsUseCase listLoanApplicationsUseCase;
+    private final GetLatestRiskAssessmentUseCase getLatestRiskAssessmentUseCase;
     private final RequestExternalRiskAssessmentUseCase requestExternalRiskAssessmentUseCase;
     @ConfigProperty(name = "app.risk.mode", defaultValue = "LOCAL")
     String riskMode;
@@ -62,6 +68,8 @@ public class LoanApplicationResource {
             RejectLoanApplicationUseCase rejectLoanApplicationUseCase,
             IdempotencyService idempotency,
             RequestFingerprint fingerprint,
+            ListLoanApplicationsUseCase listLoanApplicationsUseCase,
+            GetLatestRiskAssessmentUseCase getLatestRiskAssessmentUseCase,
             RequestExternalRiskAssessmentUseCase requestExternalRiskAssessmentUseCase
     ) {
         this.createLoanApplicationUseCase = createLoanApplicationUseCase;
@@ -72,9 +80,31 @@ public class LoanApplicationResource {
         this.rejectLoanApplicationUseCase = rejectLoanApplicationUseCase;
         this.idempotency=idempotency;
         this.fingerprint=fingerprint;
+        this.listLoanApplicationsUseCase = listLoanApplicationsUseCase;
+        this.getLatestRiskAssessmentUseCase = getLatestRiskAssessmentUseCase;
         this.requestExternalRiskAssessmentUseCase = requestExternalRiskAssessmentUseCase;
     }
 
+    @GET
+    @Path("/mine")
+    @RolesAllowed("CUSTOMER")
+    public List<LoanApplicationResponse> mine() {
+        return listLoanApplicationsUseCase.forCurrentCustomer().stream().map(LoanApplicationResponse::from).toList();
+    }
+
+    @GET
+    @RolesAllowed({"LOAN_OFFICER", "ADMIN"})
+    @Operation(summary = "Cola operativa de solicitudes", description = "Filtra por estado real del dominio; admite paginación y por defecto muestra todos los estados.")
+    public List<LoanApplicationResponse> queue(
+            @jakarta.ws.rs.QueryParam("status") LoanApplicationStatus status,
+            @jakarta.ws.rs.QueryParam("offset") @jakarta.ws.rs.DefaultValue("0") int offset,
+            @jakarta.ws.rs.QueryParam("limit") @jakarta.ws.rs.DefaultValue("50") int limit
+    ) {
+        if (offset < 0 || offset > 1_000_000 || limit < 1 || limit > 100) {
+            throw new jakarta.ws.rs.BadRequestException("offset must be between 0 and 1000000 and limit between 1 and 100");
+        }
+        return listLoanApplicationsUseCase.forOperations(status, offset, limit).stream().map(LoanApplicationResponse::from).toList();
+    }
 
     @POST
     @RolesAllowed("CUSTOMER")
@@ -110,6 +140,15 @@ public class LoanApplicationResource {
         );
     }
 
+    @GET
+    @Path("/{id}/risk-assessment")
+    @RolesAllowed({"LOAN_OFFICER", "AUDITOR", "ADMIN"})
+    public Response riskAssessment(@PathParam("id") UUID id) {
+        return getLatestRiskAssessmentUseCase.getLatest(id)
+                .map(RiskAssessmentResponse::from)
+                .map(value -> Response.ok(value).build())
+                .orElseGet(() -> Response.noContent().build());
+    }
 
     @POST
     @Path("/{id}/submit")

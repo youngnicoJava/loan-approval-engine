@@ -12,5 +12,6 @@ import java.util.UUID;
     public Optional<LoanOffer> findById(UUID id){return repo.findByIdOptional(id).map(LoanOfferEntity::toDomain);}
     public Optional<LoanOffer> findByIdForUpdate(UUID id){return repo.findLocked(id).map(LoanOfferEntity::toDomain);}
     public Optional<LoanOffer> findActiveByApplicationId(UUID id){return repo.findByApplication(id).map(LoanOfferEntity::toDomain);}
+    public Optional<LoanOffer> findByApplicationId(UUID id){return repo.findLatestByApplication(id).map(LoanOfferEntity::toDomain);}
     public List<LoanOffer> findByCustomerId(UUID id){return repo.findForCustomer(id).stream().map(LoanOfferEntity::toDomain).toList();}
 }

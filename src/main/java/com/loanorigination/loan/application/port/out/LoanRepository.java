@@ -9,4 +9,5 @@ public interface LoanRepository {
     Optional<Loan> findByIdForUpdate(UUID id);
     Optional<Loan> findByOfferId(UUID offerId);
     List<Loan> findByCustomerId(UUID customerId);
+    List<Loan> findForOperations(com.loanorigination.loan.domain.LoanStatus status, int limit);
 }

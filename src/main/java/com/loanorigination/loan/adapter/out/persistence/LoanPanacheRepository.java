@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jakarta.persistence.LockModeType;
+import com.loanorigination.loan.domain.LoanStatus;
 @ApplicationScoped public class LoanPanacheRepository implements PanacheRepositoryBase<LoanEntity, UUID> {
     public Optional<LoanEntity> findForOffer(UUID id){return find("loanOfferId",id).firstResultOptional();}
     public List<LoanEntity> findForCustomer(UUID id){return find("customerId",id).list();}
     public Optional<LoanEntity> findLocked(UUID id){return Optional.ofNullable(findById(id,LockModeType.PESSIMISTIC_WRITE));}
+    public List<LoanEntity> findForOperations(LoanStatus status, int limit){return status==null?find("order by createdAt desc").page(0,limit).list():find("status = ?1 order by createdAt desc",status).page(0,limit).list();}
 }
