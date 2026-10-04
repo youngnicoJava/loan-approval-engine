@@ -1,0 +1,1 @@
+.brand{display:flex;align-items:center;gap:10px;color:var(--text-primary);font:700 16px var(--font-heading);letter-spacing:-.35px}.mark{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--accent-border);border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);font:800 17px var(--font-heading)}

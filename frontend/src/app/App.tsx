@@ -1,83 +1,60 @@
-import { useEffect, useState } from 'react'
-import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from 'react-oidc-context'
-import { api, errorMessage } from '../shared/api/client'
-import type { Customer, Installment, Loan, LoanApplication, LoanOffer } from '../shared/types/api'
-import { hasOidcConfig } from './auth'
+import { CustomerBootstrap } from '../features/auth/CustomerBootstrap'
+import { LoginPage } from '../features/auth/LoginPage'
+import { ApplicationsPage } from '../features/applications/ApplicationsPage'
+import { ApplicationQueue } from '../features/applications/ApplicationQueue'
+import { ApplicationPage } from '../features/applications/ApplicationPage'
+import { CustomerDashboard } from '../features/dashboard/CustomerDashboard'
+import { OperationsDashboard } from '../features/dashboard/OperationsDashboard'
+import { AuditorDashboard } from '../features/dashboard/AuditorDashboard'
+import { LoansPage } from '../features/loans/LoansPage'
+import { LoanPage } from '../features/loans/LoanPage'
+import { OffersPage } from '../features/offers/OffersPage'
+import { OfferPage } from '../features/offers/OfferPage'
+import { AuditExplorer } from '../features/audit/AuditExplorer'
+import { CustomerPage } from '../features/customers/CustomerPage'
+import { rolesFromProfile, hasAnyRole, type AppRole } from '../shared/auth/roles'
+import { Notice } from '../shared/components/Primitives'
+import styles from './App.module.css'
 
-function useToken(): string | null {
-  return useAuth().user?.access_token ?? null
+function RoleGate({ allow, children }: { allow: AppRole[]; children: ReactNode }) {
+  const roles = rolesFromProfile(useAuth().user?.profile)
+  return hasAnyRole(roles, allow) ? <>{children}</> : <main className={styles.state}><section className={styles.unauthorized}><h1>Acceso no disponible</h1><Notice>Tu rol no tiene acceso a esta sección. Si creés que es un error, consultá al administrador.</Notice></section></main>
 }
 
-function useLoad<T>(load: (token: string) => Promise<T>, deps: unknown[] = []): [T | null, string, () => void] {
-  const token = useToken()
-  const [value, setValue] = useState<T | null>(null)
-  const [error, setError] = useState('')
-  const [reload, setReload] = useState(0)
-  useEffect(() => {
-    if (!token) return
-    let active = true
-    load(token).then((result) => { if (active) { setValue(result); setError('') } }).catch((reason: unknown) => { if (active) setError(errorMessage(reason)) })
-    return () => { active = false }
-  }, [token, reload, ...deps])
-  return [value, error, () => setReload((n) => n + 1)]
+function Home() {
+  const roles = rolesFromProfile(useAuth().user?.profile)
+  if (roles.includes('CUSTOMER')) return <CustomerDashboard />
+  if (roles.includes('LOAN_OFFICER')) return <OperationsDashboard />
+  if (roles.includes('AUDITOR')) return <AuditorDashboard />
+  if (roles.includes('ADMIN')) return <OperationsDashboard admin />
+  return <main className={styles.state}><Notice>El proveedor de identidad no asignó un rol compatible a este usuario.</Notice></main>
 }
 
-function LoginPage() {
+export function App() {
   const auth = useAuth()
-  if (!hasOidcConfig()) return <main className="login-page"><section className="login-card"><Brand /><div className="eyebrow">PORTAL DE PRÉSTAMOS</div><h1>Una forma clara de financiar lo que sigue.</h1><p>Ingresá con la identidad OIDC configurada para esta aplicación.</p><div className="notice">Falta configurar <code>VITE_OIDC_AUTHORITY</code> y <code>VITE_OIDC_CLIENT_ID</code>. No hay usuarios ni contraseñas de demostración.</div><a className="button" href="/">Volver al inicio</a></section></main>
-  return <main className="login-page"><section className="login-card"><Brand /><div className="eyebrow">PORTAL DE PRÉSTAMOS</div><h1>Una forma clara de financiar lo que sigue.</h1><p>Iniciá sesión de forma segura con tu proveedor.</p>{auth.error && <Notice>{auth.error.message}</Notice>}<button className="button" onClick={() => void auth.signinRedirect()} disabled={auth.isLoading}>{auth.isLoading ? 'Conectando…' : 'Continuar con inicio de sesión'}</button></section></main>
+  if (auth.isLoading) return <main className={styles.state}>Conectando con el proveedor de identidad…</main>
+  if (auth.error) return <main className={styles.state}><Notice>{auth.error.message}</Notice></main>
+  if (!auth.isAuthenticated) return <Routes><Route path="/login" element={<LoginPage />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>
+
+  return <CustomerBootstrap><Routes>
+    <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/dashboard" element={<Home />} />
+    <Route path="/applications" element={<RoleGate allow={['CUSTOMER', 'LOAN_OFFICER', 'ADMIN']}><ApplicationsIndex /></RoleGate>} />
+    <Route path="/applications/:id" element={<RoleGate allow={['CUSTOMER', 'LOAN_OFFICER', 'AUDITOR', 'ADMIN']}><ApplicationPage /></RoleGate>} />
+    <Route path="/offers" element={<RoleGate allow={['CUSTOMER']}><OffersPage /></RoleGate>} />
+    <Route path="/offers/:id" element={<RoleGate allow={['CUSTOMER']}><OfferPage /></RoleGate>} />
+    <Route path="/loans" element={<RoleGate allow={['CUSTOMER', 'LOAN_OFFICER', 'ADMIN']}><LoansPage /></RoleGate>} />
+    <Route path="/loans/:id" element={<RoleGate allow={['CUSTOMER', 'LOAN_OFFICER', 'AUDITOR', 'ADMIN']}><LoanPage /></RoleGate>} />
+    <Route path="/customers/:id" element={<RoleGate allow={['LOAN_OFFICER', 'ADMIN']}><CustomerPage /></RoleGate>} />
+    <Route path="/audit" element={<RoleGate allow={['AUDITOR', 'ADMIN']}><AuditExplorer /></RoleGate>} />
+    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+  </Routes></CustomerBootstrap>
 }
 
-function Brand() { return <div className="brand"><span className="brand-mark">L</span><span>Loan Origination</span></div> }
-function Notice({ children }: { children: React.ReactNode }) { return <div className="notice">{children}</div> }
-function LoadingError({ error }: { error: string }) { return <div className="card empty">{error || 'Cargando información…'}</div> }
-function money(value: number, currency: string) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value) }
-function statusName(value: string) { return value.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase()) }
-
-function Shell({ children }: { children: React.ReactNode }) {
-  const auth = useAuth()
-  const roles = (auth.user?.profile.realm_access as { roles?: string[] } | undefined)?.roles ?? []
-  return <div className="layout"><aside className="sidebar"><Brand /><div className="side-label">WORKSPACE</div><NavLink to="/dashboard">Inicio</NavLink><NavLink to="/applications">Solicitudes</NavLink>{roles.includes('AUDITOR') || roles.includes('ADMIN') ? <a href={`${import.meta.env.VITE_API_URL ?? ''}/api/v1/audit/events`} target="_blank" rel="noreferrer">Auditoría ↗</a> : null}<div className="sidebar-footer"><div className="avatar">{auth.user?.profile.preferred_username?.toString().slice(0, 1).toUpperCase() ?? 'U'}</div><span>{auth.user?.profile.preferred_username?.toString() ?? 'Usuario'}</span><button className="text-button" onClick={() => void auth.removeUser()}>Salir</button></div></aside><main className="content">{children}</main></div>
+function ApplicationsIndex() {
+  const roles = rolesFromProfile(useAuth().user?.profile)
+  return roles.includes('CUSTOMER') ? <ApplicationsPage /> : <ApplicationQueue />
 }
-
-function Dashboard() {
-  const token = useToken() ?? ''
-  const [customer] = useLoad((value) => api.currentCustomer(value))
-  const [loans, loanError] = useLoad((value) => api.loans(value))
-  const [offers, offerError] = useLoad((value) => api.offers(value))
-  const navigate = useNavigate()
-  const typedCustomer = customer as Customer | null
-  return <Shell><header className="page-header"><div><div className="eyebrow">OVERVIEW</div><h1>{typedCustomer?.fullName ? `Hola, ${typedCustomer.fullName.split(' ')[0]}` : 'Tu espacio financiero'}</h1><p>Seguí tus solicitudes y préstamos en un solo lugar.</p></div><button className="button" onClick={() => navigate('/applications')}>＋ Nueva solicitud</button></header><div className="summary-grid"><div className="summary-card"><span>Préstamos activos</span><strong>{loans?.filter((loan) => loan.status === 'ACTIVE').length ?? '—'}</strong><small>En tu cuenta</small></div><div className="summary-card"><span>Ofertas disponibles</span><strong>{offers?.filter((offer) => offer.status === 'PENDING').length ?? '—'}</strong><small>Listas para revisar</small></div><div className="summary-card"><span>Solicitudes</span><strong>—</strong><small>Actualizadas al instante</small></div></div><section className="section"><div className="section-heading"><div><h2>Mis préstamos</h2><p>Información actual de tus créditos</p></div></div>{loans ? loans.length ? <div className="card-list">{loans.map((loan) => <LoanCard key={loan.id} loan={loan} />)}</div> : <Empty title="Todavía no tenés préstamos" text="Cuando aceptes una oferta, tu préstamo aparecerá aquí." /> : <LoadingError error={loanError} />}</section><section className="section"><div className="section-heading"><div><h2>Ofertas disponibles</h2><p>Revisá los términos antes de aceptar</p></div></div>{offers ? offers.filter((offer) => offer.status === 'PENDING').length ? <div className="card-list">{offers.filter((offer) => offer.status === 'PENDING').map((offer) => <OfferCard key={offer.id} offer={offer} />)}</div> : <Empty title="No hay ofertas pendientes" text="Te avisaremos cuando haya novedades en tus solicitudes." /> : <LoadingError error={offerError} />}</section><div hidden>{token}</div></Shell>
-}
-
-function Empty({ title, text }: { title: string; text: string }) { return <div className="card empty"><span className="empty-icon">○</span><strong>{title}</strong><p>{text}</p></div> }
-function LoanCard({ loan }: { loan: Loan }) { return <article className="loan-card"><div className="product-icon">↗</div><div className="card-main"><div className="card-title"><h3>{loan.termMonths} cuotas · Préstamo personal</h3><span className={`badge ${loan.status.toLowerCase()}`}>{statusName(loan.status)}</span></div><p>{money(loan.principal, loan.currency)} · {loan.annualInterestRatePercentage}% TNA</p></div><NavLink className="arrow-link" to={`/loans/${loan.id}`}>Ver detalle <span>→</span></NavLink></article> }
-function OfferCard({ offer }: { offer: LoanOffer }) { return <article className="loan-card"><div className="product-icon offer">✦</div><div className="card-main"><div className="card-title"><h3>Oferta de préstamo</h3><span className="badge pending">Disponible</span></div><p>{money(offer.principal, offer.currency)} · {offer.termMonths} meses · Cuota {money(offer.monthlyInstallment, offer.currency)}</p></div><NavLink className="arrow-link" to={`/offers/${offer.id}`}>Revisar <span>→</span></NavLink></article> }
-
-function ApplicationsPage() {
-  const token = useToken() ?? ''
-  const [productType, setProductType] = useState('PERSONAL_LOAN')
-  const [amount, setAmount] = useState('1500000')
-  const [currency, setCurrency] = useState('ARS')
-  const [termMonths, setTermMonths] = useState('24')
-  const [purpose, setPurpose] = useState('Gastos personales')
-  const [created, setCreated] = useState<LoanApplication | null>(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [lastId, setLastId] = useState(() => localStorage.getItem('loanApplicationId') ?? '')
-  const [existing, existingError] = useLoad((value) => lastId ? api.applications(value, lastId) : Promise.resolve(null), [lastId])
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try { const app = await api.createApplication(token, { productType, requestedAmount: Number(amount), currency, termMonths: Number(termMonths), purpose }); setCreated(app); setLastId(app.id); localStorage.setItem('loanApplicationId', app.id) } catch (reason) { setError(errorMessage(reason)) } finally { setBusy(false) } }
-  const send = async () => { if (!created && !existing) return; setBusy(true); try { const app = await api.submitApplication(token, (created ?? existing)!.id); setCreated(app); setLastId(app.id) } catch (reason) { setError(errorMessage(reason)) } finally { setBusy(false) } }
-  const current = created ?? existing
-  return <Shell><header className="page-header"><div><div className="eyebrow">LOAN ORIGINATION</div><h1>Solicitudes</h1><p>Creá una solicitud y seguí cada actualización.</p></div></header>{current && <section className="section"><div className="section-heading"><div><h2>Última solicitud</h2><p>Identificador {current.id.slice(0, 8)}…</p></div><span className={`badge ${current.status.toLowerCase()}`}>{statusName(current.status)}</span></div><article className="loan-card"><div className="product-icon">⌂</div><div className="card-main"><h3>{current.productType.replaceAll('_', ' ')}</h3><p>{money(current.requestedAmount, current.currency)} · {current.termMonths} meses</p></div>{current.status === 'DRAFT' && <button className="button small" disabled={busy} onClick={() => void send()}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button>}</article></section>}{existingError && <Notice>{existingError}</Notice>}<section className="section"><div className="section-heading"><div><h2>Nueva solicitud</h2><p>Completá los datos básicos del préstamo</p></div></div><form className="card form-card" onSubmit={(event) => void submit(event)}><label>Producto<select value={productType} onChange={(event) => setProductType(event.target.value)}><option value="PERSONAL_LOAN">Préstamo personal</option><option value="AUTO_LOAN">Préstamo automotor</option><option value="HOME_LOAN">Préstamo hipotecario</option></select></label><div className="form-row"><label>Monto solicitado<input type="number" min="1" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label><label>Moneda<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option>ARS</option><option>USD</option></select></label></div><label>Plazo en meses<input type="number" min="1" value={termMonths} onChange={(event) => setTermMonths(event.target.value)} required /></label><label>Destino<textarea maxLength={500} value={purpose} onChange={(event) => setPurpose(event.target.value)} required /></label>{error && <Notice>{error}</Notice>}<button className="button" disabled={busy}>{busy ? 'Procesando…' : 'Crear solicitud'}</button></form></section></Shell>
-}
-
-function ApplicationPage() { const { id = '' } = useParams(); const token = useToken() ?? ''; const [application, error, refresh] = useLoad((value) => api.applications(value, id), [id]); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const submit = async () => { setBusy(true); try { await api.submitApplication(token, id); setMessage('Solicitud enviada para evaluación.'); refresh() } catch (reason) { setMessage(errorMessage(reason)) } finally { setBusy(false) } }; return <Shell><header className="page-header"><div><div className="eyebrow">SOLICITUD</div><h1>Detalle de solicitud</h1><p>Seguimiento del estado y condiciones ingresadas.</p></div></header>{application ? <section className="card detail-card"><div className="detail-amount">{money(application.requestedAmount, application.currency)}<span>{application.productType.replaceAll('_', ' ')}</span></div><div className="detail-grid"><Detail label="Plazo" value={`${application.termMonths} meses`} /><Detail label="Estado" value={statusName(application.status)} /><Detail label="Destino" value={application.purpose} /><Detail label="Creada" value={new Date(application.createdAt).toLocaleDateString('es-AR')} /></div>{message && <Notice>{message}</Notice>}{application.status === 'DRAFT' && <button className="button" disabled={busy} onClick={() => void submit()}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button>}</section> : <LoadingError error={error} />}</Shell> }
-
-function OfferPage() { const { id = '' } = useParams(); const token = useToken() ?? ''; const [offer, error, refresh] = useLoad((value) => api.offer(value, id), [id]); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false); const navigate = useNavigate(); const decide = async (accept: boolean) => { setBusy(true); setMessage(''); try { if (accept) { const loan = await api.acceptOffer(token, id); navigate(`/loans/${loan.id}`) } else { await api.declineOffer(token, id); setMessage('Oferta rechazada.'); refresh() } } catch (reason) { setMessage(errorMessage(reason)) } finally { setBusy(false) } }; return <Shell><header className="page-header"><div><div className="eyebrow">OFERTA DE PRÉSTAMO</div><h1>Revisá tu oferta</h1><p>Revisá los importes y las condiciones de pago.</p></div></header>{offer ? <section className="card detail-card"><div className="detail-amount">{money(offer.principal, offer.currency)}<span>Capital ofrecido</span></div><div className="detail-grid"><Detail label="Tasa nominal anual" value={`${offer.annualInterestRatePercentage}%`} /><Detail label="Plazo" value={`${offer.termMonths} meses`} /><Detail label="Cuota mensual" value={money(offer.monthlyInstallment, offer.currency)} /><Detail label="Total a devolver" value={money(offer.totalRepayment, offer.currency)} /><Detail label="Vence" value={new Date(offer.expiresAt).toLocaleDateString('es-AR')} /><Detail label="Estado" value={statusName(offer.status)} /></div>{message && <Notice>{message}</Notice>}{offer.status === 'PENDING' && <div className="actions"><button className="button" disabled={busy} onClick={() => void decide(true)}>Aceptar oferta</button><button className="button secondary" disabled={busy} onClick={() => void decide(false)}>Rechazar</button></div>}</section> : <LoadingError error={error} />}</Shell> }
-function Detail({ label, value }: { label: string; value: string }) { return <div className="detail-item"><span>{label}</span><strong>{value}</strong></div> }
-
-function LoanPage() { const { id = '' } = useParams(); const [loan, loanError] = useLoad((value) => api.loan(value, id), [id]); const [disbursement, disbursementError] = useLoad((value) => api.disbursement(value, id), [id]); const [installments, installmentError] = useLoad((value) => api.installments(value, id), [id]); const [schedule, scheduleError] = useLoad((value) => api.schedule(value, id), [id]); const typedInstallments = (installments ?? []) as Installment[]; return <Shell><header className="page-header"><div><div className="eyebrow">DETALLE DEL PRÉSTAMO</div><h1>Tu préstamo</h1><p>Estado, desembolso y calendario de cuotas.</p></div></header>{loan ? <><section className="card detail-card"><div className="detail-amount">{money(loan.principal, loan.currency)}<span>Capital del préstamo</span></div><div className="detail-grid"><Detail label="Estado" value={statusName(loan.status)} /><Detail label="Tasa nominal anual" value={`${loan.annualInterestRatePercentage}%`} /><Detail label="Plazo" value={`${loan.termMonths} meses`} /><Detail label="Cuota mensual" value={money(loan.monthlyInstallment, loan.currency)} /><Detail label="Desembolso" value={disbursement?.status ? statusName(disbursement.status) : disbursementError || 'Cargando…'} /></div></section><section className="section"><div className="section-heading"><div><h2>Plan de pagos</h2><p>{schedule ? `${schedule.installmentCount} cuotas · Desembolso ${schedule.disbursedOn}` : scheduleError}</p></div></div>{installments ? <div className="table-wrap"><table><thead><tr><th>#</th><th>Vencimiento</th><th>Capital</th><th>Interés</th><th>Total</th><th>Saldo</th><th>Estado</th></tr></thead><tbody>{typedInstallments.map((item) => <tr key={item.id}><td>{item.installmentNumber}</td><td>{new Date(`${item.dueDate}T12:00:00`).toLocaleDateString('es-AR')}</td><td>{money(item.principalAmount, item.currency)}</td><td>{money(item.interestAmount, item.currency)}</td><td>{money(item.totalAmount, item.currency)}</td><td>{money(item.remainingPrincipal, item.currency)}</td><td><span className={`badge ${item.status.toLowerCase()}`}>{statusName(item.status)}</span></td></tr>)}</tbody></table></div> : <LoadingError error={installmentError} />}</section></> : <LoadingError error={loanError} />}</Shell> }
-
-export function App() { const auth = useAuth(); if (auth.isLoading) return <main className="login-page"><div className="card empty">Conectando con el proveedor de identidad…</div></main>; if (auth.error) return <main className="login-page"><div className="card empty"><Notice>{auth.error.message}</Notice></div></main>; if (!auth.isAuthenticated) return <Routes><Route path="/login" element={<LoginPage />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>; return <Routes><Route path="/login" element={<Navigate to="/dashboard" replace />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/applications" element={<ApplicationsPage />} /><Route path="/applications/:id" element={<ApplicationPage />} /><Route path="/offers/:id" element={<OfferPage />} /><Route path="/loans/:id" element={<LoanPage />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes> }
