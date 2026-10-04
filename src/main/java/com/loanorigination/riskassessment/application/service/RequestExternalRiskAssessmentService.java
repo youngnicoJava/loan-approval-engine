@@ -50,7 +50,7 @@ public class RequestExternalRiskAssessmentService implements RequestExternalRisk
         Map.entry("employmentStatus", profile.employmentStatus().name()),
         Map.entry("employmentTenureMonths", profile.employmentTenureMonths()),
         Map.entry("correlationId", correlationId));
-    events.record("loan.risk-assessment.requested.v2", 2, AuditAction.RISK_ASSESSMENT_REQUESTED,
+    events.record("loan.risk-assessment.requested", 2, AuditAction.RISK_ASSESSMENT_REQUESTED,
         "LoanApplication", id, payload);
     if ("KAFKA".equalsIgnoreCase(fraudMode)) {
       events.record("loan.fraud-assessment.requested", 1, AuditAction.FRAUD_ASSESSMENT_REQUESTED,

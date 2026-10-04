@@ -7,7 +7,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class IntegrationEventMapper {
     public IntegrationEvent from(OutboxEvent event){
-        return new IntegrationEvent(event.eventId(),event.eventType()+".v"+event.eventVersion(),
+        String versionSuffix = ".v" + event.eventVersion();
+        String eventType = event.eventType().endsWith(versionSuffix)
+                ? event.eventType()
+                : event.eventType() + versionSuffix;
+        return new IntegrationEvent(event.eventId(),eventType,
                 event.aggregateType(),event.aggregateId(),event.correlationId(),event.payload(),event.occurredAt());
     }
 }

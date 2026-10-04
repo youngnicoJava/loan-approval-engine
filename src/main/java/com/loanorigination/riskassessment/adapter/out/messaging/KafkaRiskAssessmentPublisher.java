@@ -38,7 +38,7 @@ public class KafkaRiskAssessmentPublisher implements EventPublisherPort {
       publish(riskEmitter, event, event.eventType(), 2);
       return;
     }
-    if ("loan.fraud-assessment.requested".equals(event.eventType())
+    if ("loan.fraud-assessment.requested.v1".equals(event.eventType())
         && "KAFKA".equalsIgnoreCase(config.getOptionalValue("app.fraud.mode", String.class).orElse("LOCAL"))) {
       publish(fraudEmitter, event, "loan.fraud-assessment.requested.v1", 1);
       return;

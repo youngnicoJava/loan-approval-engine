@@ -67,6 +67,27 @@ class WorkflowEventAtomicityTest {
         transaction.commit();
     }
 
+    @Test @ActivateRequestContext
+    void externalAssessmentRequestsCanBeRecordedInAuditAndOutbox() throws Exception {
+        UUID applicationId = UUID.randomUUID();
+        transaction.begin();
+        recorder.record("loan.risk-assessment.requested.v2", 2, AuditAction.RISK_ASSESSMENT_REQUESTED,
+                "LoanApplication", applicationId, Map.of("loanApplicationId", applicationId.toString()));
+        recorder.record("loan.fraud-assessment.requested", 1, AuditAction.FRAUD_ASSESSMENT_REQUESTED,
+                "LoanApplication", applicationId, Map.of("loanApplicationId", applicationId.toString()));
+        transaction.commit();
+
+        assertEquals(2, count("audit_events", applicationId));
+        assertEquals(2, count("outbox_events", applicationId));
+
+        transaction.begin();
+        entityManager.createNativeQuery("delete from audit_events where aggregate_id=:id")
+                .setParameter("id", applicationId).executeUpdate();
+        entityManager.createNativeQuery("delete from outbox_events where aggregate_id=:id")
+                .setParameter("id", applicationId).executeUpdate();
+        transaction.commit();
+    }
+
     private LoanApplication application(UUID customer){
         var application=LoanApplication.create(customer,LoanProductType.PERSONAL_LOAN,
                 Money.of(new BigDecimal("10000.00"),Currency.getInstance("ARS")),LoanTerm.ofMonths(12),
