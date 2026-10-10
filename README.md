@@ -2,6 +2,47 @@
 
 Plataforma de demostración del proceso de originación: desde que una persona solicita crédito hasta que acepta una oferta, se desembolsa un préstamo y consulta cuotas. No es un core bancario completo ni mueve dinero real.
 
+## Recorrido visual y lectura técnica
+
+**Java 25 · Quarkus 3.39.5 · PostgreSQL · Flyway · OIDC/Keycloak · Kafka/outbox · React · TypeScript · Vite**
+
+![Portal real del cliente: solicitudes y préstamo activo](docs/assets/screenshots/customer-dashboard.jpg)
+
+Este repositorio muestra cómo separar una solicitud de crédito de una oferta y de una obligación financiera. El backend conserva la autoridad sobre ownership, gates de aprobación, aceptación idempotente, desembolso y generación de cuotas. El frontend ofrece vistas específicas para cliente, oficial y auditor.
+
+| Recorrido | Qué demuestra |
+|---|---|
+| Cliente | Autenticación, solicitud, oferta aceptada y préstamo propio |
+| Oficial | Revisión, oferta pendiente y desembolso como operación separada |
+| Auditor | Historial de eventos, actor, agregado y correlación |
+| Backend | REST protegido, snapshots, BigDecimal, locks, constraints y outbox |
+
+### De la oferta al préstamo
+
+![Préstamo activo y calendario persistido](docs/assets/screenshots/loan-active.jpg)
+
+El fixture mostrado conserva una oferta de ARS 100.000 a 24 meses y 36% TNA, con desembolso local completado. La cuota regular es ARS 5.904,74; la última ajusta centavos y cierra el saldo en cero. El adaptador es de demostración: no mueve fondos bancarios reales.
+
+### Control operativo y auditoría
+
+![Cola de operaciones del oficial](docs/assets/screenshots/operations-dashboard.jpg)
+
+![Auditoría real del workflow](docs/assets/screenshots/audit-events.jpg)
+
+**17 capturas reales** cubren login/Keycloak, cliente, oficial, auditor, solicitud, oferta, desembolso, cuotas y Swagger. [Ver la galería completa](docs/visual-tour.md).
+
+## Documentación para explorar el proyecto
+
+| Documento | Contenido |
+|---|---|
+| [Índice técnico](docs/README.md) | Recorrido sugerido y documentos existentes |
+| [Galería real](docs/visual-tour.md) | 17 capturas, roles, rutas y contexto de cada pantalla |
+| [Backend paso a paso](docs/backend-walkthrough.md) | Reglas, transacciones, identidad e invariantes |
+| [Flujo entre los tres servicios](docs/ecosystem-flow.md) | Contratos Kafka, gates, outbox y modos LOCAL/KAFKA |
+| [Evidencia de esta campaña](docs/evidence-2026-10-10.md) | Entorno, tests, builds y límites de lo verificado |
+
+Las capturas son del frontend real conectado a los backends y PostgreSQL de desarrollo, tomadas el **10/10/2026** con datos de prueba existentes. No son mockups ni pantallas fabricadas. La sesión consultó fixtures históricos; no ejecutó nuevas operaciones financieras ni un E2E Kafka. Ver detalles y estado de builds en la evidencia.
+
 ## Ecosistema
 
 Loan Origination conserva el workflow y el estado financiero. Credit Risk evalúa elegibilidad y capacidad a partir de información declarada. Fraud Detection busca señales de comportamiento sospechoso y permite investigación humana. Son bounded contexts separados, con bases propias; Risk y Fraud no se llaman entre sí.
@@ -38,7 +79,7 @@ flowchart TD
 
 Application, Offer y Loan son conceptos distintos: APPROVED permite continuar a oferta, no crea deuda. Estados de solicitud: DRAFT (borrador), SUBMITTED (enviada), UNDER_REVIEW (evaluación/revisión), APPROVED (habilitada para oferta), REJECTED y CANCELLED. CUSTOMER crea/consulta/envía solicitudes; el backend aplica ownership. LOAN_OFFICER/ADMIN opera colas y decisiones permitidas.
 
-Sólo Credit APPROVE + Fraud PASS permite aprobación automática. Credit REFER permanece UNDER_REVIEW; una decisión manual de crédito sólo puede aprobar si Fraud PASS. Credit REJECT lo aplica LO. Fraud REVIEW o BLOCK mantiene cerrado el gate y el oficial no puede ignorarlo. Una resolución Fraud CLEARED puede liberar el gate; CONFIRMED_FRAUD no. El assessment automático permanece inmutable.
+En modo KAFKA, Credit APPROVE más un gate de fraude liberado (PASS o disposición CLEARED) permite aprobación automática. Credit REFER permanece UNDER_REVIEW; una decisión manual de crédito requiere que el gate de fraude esté liberado. Credit REJECT lo aplica LO. Fraud REVIEW o BLOCK mantiene cerrado el gate y el oficial no puede ignorarlo. Una resolución Fraud CLEARED puede liberar el gate; CONFIRMED_FRAUD no. El assessment automático permanece inmutable.
 
 ### Oferta, préstamo y desembolso
 
